@@ -83,19 +83,12 @@ class NotificationReaderService : NotificationListenerService() {
             return
         }
 
-        // Não descartar sbn.isGroup: notificações comuns também podem ser agrupadas pelo Android.
+        // Instagram Lite pode notificar a mensagem sem expor uma ação RemoteInput.
+        // Ainda assim, geramos a resposta e exibimos o motivo quando não for possível enviá-la.
         val action = sbn.notification.actions?.firstOrNull { candidate ->
             !candidate.remoteInputs.isNullOrEmpty() && candidate.actionIntent != null
         }
-        if (action == null) {
-            setReplyStatus(prefs, "O Instagram notificou a mensagem, mas não ofereceu resposta rápida nesta notificação.")
-            return
-        }
-        val remoteInputs = action.remoteInputs
-        if (remoteInputs.isNullOrEmpty()) {
-            setReplyStatus(prefs, "A notificação não contém um campo de resposta compatível.")
-            return
-        }
+        val remoteInputs = action?.remoteInputs
 
         val dedupeKey = "auto_reply_seen_" + sbn.key.hashCode() + "_" + sbn.postTime
         if (prefs.getBoolean(dedupeKey, false)) return
@@ -106,22 +99,10 @@ class NotificationReaderService : NotificationListenerService() {
         val fKey = friendshipKey(sbn.packageName, title)
         val friendship = if (creator) 100 else prefs.getInt(fKey, DEFAULT_FRIENDSHIP).coerceIn(0, 100)
 
-        if (!creator) {
-            val replyChance = (45 + friendship / 2).coerceIn(45, 95)
-            if (Random.nextInt(100) >= replyChance) {
-                prefs.edit().putInt(fKey, (friendship - 5).coerceAtLeast(10)).apply()
-                return
-            }
-        }
-
         Thread {
             try {
-                val delayMs = if (creator) {
-                    Random.nextLong(900, 2200)
-                } else {
-                    val baseDelay = 4_000L + ((100 - friendship) * 900L)
-                    Random.nextLong(baseDelay, baseDelay + 8_000L).coerceAtMost(120_000L)
-                }
+                // Responder em poucos segundos para que o teste seja fácil de verificar.
+                val delayMs = if (creator) Random.nextLong(900, 1800) else Random.nextLong(2_000, 6_000)
                 Thread.sleep(delayMs)
 
                 val connection = (URL("$BACKEND_URL/chat").openConnection() as HttpURLConnection).apply {
@@ -145,7 +126,11 @@ class NotificationReaderService : NotificationListenerService() {
                         .put("userId", if (creator) "creator:salem.logic" else contactMemoryId(sbn.packageName, title))
                         .toString()
                     connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-                    if (connection.responseCode !in 200..299) return@Thread
+                    val statusCode = connection.responseCode
+                    if (statusCode !in 200..299) {
+                        setReplyStatus(prefs, "O servidor de respostas falhou (HTTP $statusCode). Abra o app e teste a conexão.")
+                        return@Thread
+                    }
                     val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                     JSONObject(response).optString("reply").trim()
                 } finally {
@@ -156,13 +141,24 @@ class NotificationReaderService : NotificationListenerService() {
                     return@Thread
                 }
 
-                val intent = Intent()
-                val results = Bundle()
-                val remoteInput = remoteInputs.firstOrNull() ?: return@Thread
-                results.putCharSequence(remoteInput.resultKey, reply)
-                RemoteInput.addResultsToIntent(remoteInputs, intent, results)
-                action.actionIntent.send(this, 0, intent)
-                setReplyStatus(prefs, if (creator) "Resposta enviada para Salem." else "Resposta enviada pelo botão de resposta da notificação.")
+                if (action != null && !remoteInputs.isNullOrEmpty()) {
+                    val intent = Intent()
+                    val results = Bundle()
+                    val remoteInput = remoteInputs.firstOrNull()
+                    if (remoteInput == null) {
+                        prefs.edit().putString("last_auto_reply_draft", reply).apply()
+                        setReplyStatus(prefs, "Resposta gerada, mas o Instagram Lite não forneceu um campo compatível. Rascunho salvo no app: $reply")
+                        return@Thread
+                    }
+                    results.putCharSequence(remoteInput.resultKey, reply)
+                    RemoteInput.addResultsToIntent(remoteInputs, intent, results)
+                    action.actionIntent.send(this, 0, intent)
+                    prefs.edit().putString("last_auto_reply_draft", reply).apply()
+                    setReplyStatus(prefs, if (creator) "Resposta enviada para Salem." else "Resposta enviada pela notificação.")
+                } else {
+                    prefs.edit().putString("last_auto_reply_draft", reply).apply()
+                    setReplyStatus(prefs, "O Lite não ofereceu resposta rápida. Rascunho gerado (copie no app): $reply")
+                }
 
                 if (!creator) {
                     prefs.edit().putInt(fKey, (friendship + 2).coerceAtMost(100)).apply()
