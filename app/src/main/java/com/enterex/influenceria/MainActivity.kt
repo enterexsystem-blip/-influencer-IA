@@ -79,11 +79,11 @@ class MainActivity : Activity() {
     }
 
     private fun buildScreen() {
-        val background = Color.rgb(9, 12, 22)
-        val panel = Color.rgb(20, 26, 42)
-        val accent = Color.rgb(139, 111, 255)
-        val white = Color.rgb(244, 246, 255)
-        val muted = Color.rgb(158, 169, 197)
+        val background = Color.rgb(5, 6, 8)
+        val panel = Color.rgb(15, 17, 21)
+        val accent = Color.rgb(225, 229, 235)
+        val white = Color.rgb(225, 229, 235)
+        val muted = Color.rgb(135, 143, 153)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(background)
@@ -99,16 +99,16 @@ class MainActivity : Activity() {
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(22), dp(20), dp(22))
-            setBackground(roundedGradient(intArrayOf(Color.rgb(52, 43, 101), Color.rgb(26, 34, 64)), dp(24)))
+            setBackground(roundedGradient(intArrayOf(Color.rgb(20, 23, 28), Color.rgb(8, 10, 13)), dp(22)))
         }
-        hero.addView(label("ENTEREX  /  AYLA AI", 11, Color.rgb(203, 193, 255), true), matchWrap())
-        hero.addView(label("Sua Ayla.", 32, white, true).apply { setPadding(0, dp(8), 0, dp(3)) }, matchWrap())
-        hero.addView(label("Um espaço para conversar, configurar e guardar as coisas dela.", 14, Color.rgb(218, 222, 245), false), matchWrap())
-        hero.addView(label("●  PAINEL PESSOAL", 10, Color.rgb(153, 235, 205), true).apply { setPadding(0, dp(16), 0, 0) }, matchWrap())
+        hero.addView(label("◈  ENTEREX  /  AYLA AI", 11, Color.rgb(225, 229, 235), true), matchWrap())
+        hero.addView(label("AYLA // CENTRAL", 27, white, true).apply { setPadding(0, dp(8), 0, dp(3)) }, matchWrap())
+        hero.addView(label("Conversa, automação e biblioteca em um só lugar.", 14, muted, false), matchWrap())
+        hero.addView(label("●  SISTEMA PESSOAL", 10, Color.rgb(153, 235, 205), true).apply { setPadding(0, dp(16), 0, 0) }, matchWrap())
         content.addView(hero, fullWidthWithTop())
 
         val moodCard = card(panel)
-        moodCard.addView(sectionTitle("ESTADO EMOCIONAL", "Como a Ayla está se sentindo"), matchWrap())
+        moodCard.addView(sectionTitle("01  /  PERSONA", "Estado da Ayla"), matchWrap())
         moodPicker = Spinner(this)
         val moods = listOf("😊  Feliz", "🥰  Carinhosa", "😌  Tranquila", "🤔  Curiosa", "😴  Cansada", "🥺  Sensível", "😎  Confiante", "😔  Triste", "😤  Irritada", "✨  Animada")
         moodPicker.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, moods)
@@ -139,7 +139,7 @@ class MainActivity : Activity() {
         content.addView(moodCard, fullWidthWithTop())
 
         val statusCard = card(panel)
-        statusCard.addView(sectionTitle("CONEXÃO", "Permissões e aplicativo"), matchWrap())
+        statusCard.addView(sectionTitle("02  /  CONEXÃO", "Permissões do sistema"), matchWrap())
         statusText = label("Verificando…", 16, white, true).apply { setPadding(0, dp(12), 0, dp(4)) }
         statusCard.addView(statusText, matchWrap())
         statusCard.addView(label("Escolhe o app que ela pode monitorar. As permissões são controladas por você nas configurações do Android.", 13, muted, false), matchWrap())
@@ -147,14 +147,14 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
         statusCard.addView(permissionButton, fullWidthWithTop())
-        val accessibilityButton = actionButton("Configurar envio assistido", Color.rgb(48, 59, 88)) {
+        val accessibilityButton = actionButton("Configurar envio assistido", Color.rgb(24, 27, 32)) {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         statusCard.addView(accessibilityButton, fullWidthWithTop())
         content.addView(statusCard, fullWidthWithTop())
 
         val appCard = card(panel)
-        appCard.addView(sectionTitle("APLICATIVO MONITORADO", "Escolha de onde chegam as notificações"), matchWrap())
+        appCard.addView(sectionTitle("03  /  APLICATIVO", "Origem das notificações"), matchWrap())
         appPicker = Spinner(this)
         appCard.addView(appPicker, fullWidthWithTop())
         appCard.addView(actionButton("Atualizar lista de aplicativos", Color.rgb(48, 59, 88)) { loadAppChoices() }, fullWidthWithTop())
@@ -162,7 +162,7 @@ class MainActivity : Activity() {
         loadAppChoices()
 
         val automationCard = card(panel)
-        automationCard.addView(sectionTitle("RESPOSTAS AUTOMÁTICAS", "Controle de segurança"), matchWrap())
+        automationCard.addView(sectionTitle("04  /  AUTOMAÇÃO", "Respostas automáticas"), matchWrap())
         autoReplyButton = actionButton("Ativar respostas automáticas", accent) {
             val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             val selected = prefs.getString(KEY_SELECTED_PACKAGE, "").orEmpty()
@@ -180,7 +180,7 @@ class MainActivity : Activity() {
         content.addView(automationCard, fullWidthWithTop())
 
         val inboxCard = card(panel)
-        inboxCard.addView(sectionTitle("CAIXA DE ENTRADA", "Última notificação capturada"), matchWrap())
+        inboxCard.addView(sectionTitle("05  /  INBOX", "Última notificação recebida"), matchWrap())
         packageText = label("Aplicativo: —", 12, accent, true).apply { setPadding(0, dp(10), 0, dp(6)) }
         inboxCard.addView(packageText, matchWrap())
         previewText = label("Nenhuma mensagem capturada ainda.", 15, white, false)
@@ -202,13 +202,13 @@ class MainActivity : Activity() {
         content.addView(inboxCard, fullWidthWithTop())
 
         val chatCard = card(panel)
-        chatCard.addView(sectionTitle("CONVERSAR COM A AYLA", "Testar uma resposta"), matchWrap())
+        chatCard.addView(sectionTitle("06  /  CHAT DE TESTE", "Converse com a Ayla"), matchWrap())
         messageInput = EditText(this).apply {
             hint = "Escreve uma mensagem aqui…"
             setTextColor(white); setHintTextColor(muted); textSize = 15f
             setPadding(dp(14), dp(12), dp(14), dp(12)); minLines = 3; maxLines = 6
             gravity = Gravity.TOP
-            setBackground(roundedSolid(Color.rgb(30, 37, 57), dp(14)))
+            setBackground(roundedSolid(Color.rgb(9, 11, 14), dp(14)))
         }
         chatCard.addView(messageInput, fullWidthWithTop())
         sendButton = actionButton("Gerar resposta", accent) { generateReply() }
@@ -221,7 +221,7 @@ class MainActivity : Activity() {
         content.addView(chatCard, fullWidthWithTop())
 
         val libraryCard = card(panel)
-        libraryCard.addView(sectionTitle("BIBLIOTECA DA AYLA", "Pastas para fotos, referências e arquivos"), matchWrap())
+        libraryCard.addView(sectionTitle("07  /  BIBLIOTECA", "Fotos, referências e arquivos"), matchWrap())
         libraryCard.addView(label("Os arquivos ficam guardados dentro do armazenamento privado do app. Escolhe uma pasta e importa imagens ou outros arquivos pelo seletor do Android.", 12, muted, false).apply { setPadding(0, dp(8), 0, 0) }, matchWrap())
         folderPicker = Spinner(this)
         libraryCard.addView(folderPicker, fullWidthWithTop())
@@ -236,18 +236,21 @@ class MainActivity : Activity() {
         folderFileList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         libraryCard.addView(folderFileList, fullWidthWithTop())
         content.addView(libraryCard, fullWidthWithTop())
-        content.addView(label("ENTEREX • AYLA PERSONAL SPACE\nAs emoções são estados escolhidos/configurados, não sentimentos reais da IA.", 11, muted, false).apply {
+        content.addView(label("◈  ENTEREX  /  AYLA\nCENTRAL DE CONTROLE  •  As emoções são estados configurados, não sentimentos reais da IA.", 11, muted, false).apply {
             gravity = Gravity.CENTER
             setPadding(dp(6), dp(22), dp(6), dp(10))
         }, matchWrap())
 
+        window.statusBarColor = background
+        window.navigationBarColor = background
+        window.decorView.systemUiVisibility = 0
         setContentView(root)
         setupLibrary()
         updateAutoReplyButton()
     }
 
     private fun roundedSolid(color: Int, radius: Int): GradientDrawable =
-        GradientDrawable().apply { setColor(color); cornerRadius = radius.toFloat() }
+        GradientDrawable().apply { setColor(color); cornerRadius = radius.toFloat(); setStroke(dp(1), Color.rgb(58, 64, 73)) }
 
     private fun roundedGradient(colors: IntArray, radius: Int): GradientDrawable =
         GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = radius.toFloat() }
@@ -255,8 +258,8 @@ class MainActivity : Activity() {
     private fun sectionTitle(kicker: String, title: String): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(label(kicker, 10, Color.rgb(167, 151, 255), true), matchWrap())
-            addView(label(title, 18, Color.rgb(244, 246, 255), true).apply { setPadding(0, dp(5), 0, 0) }, matchWrap())
+            addView(label(kicker, 10, Color.rgb(225, 229, 235), true), matchWrap())
+            addView(label(title, 18, Color.rgb(225, 229, 235), true).apply { setPadding(0, dp(5), 0, 0) }, matchWrap())
         }
 
     private fun actionButton(textValue: String, color: Int, action: () -> Unit): Button =
@@ -264,7 +267,7 @@ class MainActivity : Activity() {
             text = textValue
             isAllCaps = false
             textSize = 14f
-            setTextColor(Color.WHITE)
+            setTextColor(if (color == Color.rgb(225, 229, 235)) Color.rgb(5, 6, 8) else Color.rgb(225, 229, 235))
             this.background = roundedSolid(color, dp(14))
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { action() }
@@ -508,8 +511,8 @@ class MainActivity : Activity() {
             else -> "Ativar respostas automáticas"
         }
         autoReplyButton.isEnabled = selected
-        autoReplyButton.setBackgroundColor(if (enabled) Color.rgb(183, 72, 82) else Color.rgb(91, 115, 255))
-        autoReplyButton.setTextColor(Color.WHITE)
+        autoReplyButton.setBackground(roundedSolid(if (enabled) Color.rgb(126, 47, 70) else if (selected) Color.rgb(225, 229, 235) else Color.rgb(24, 27, 32), dp(14)))
+        autoReplyButton.setTextColor(if (enabled || !selected) Color.rgb(225, 229, 235) else Color.rgb(5, 6, 8))
     }
 
     private fun generateReply() {
@@ -616,7 +619,7 @@ class MainActivity : Activity() {
 
     private fun card(color: Int) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setBackgroundColor(color)
+        setBackground(roundedSolid(color, dp(18)))
         setPadding(dp(18), dp(18), dp(18), dp(18))
     }
 
