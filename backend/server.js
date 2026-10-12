@@ -509,7 +509,7 @@ function conversationContext(profile, currentMessage = "") {
 }
 
 function isNoopReply(reply) {
-  const normalized = String(reply || "").trim().toLocaleLowerCase("pt-BR").replace(/[.!\\s]+$/g, "");
+  const normalized = String(reply || "").trim().toLocaleLowerCase("pt-BR").replace(/[.!\s]+$/g, "");
   return !normalized || /^(noop|no-op|no_op|none|null|undefined|skip|silence|\[noop\])$/i.test(normalized);
 }
 
@@ -540,6 +540,22 @@ function phraseFallback(message, profile) {
     profile.recentReplies = [...recent, selected].slice(-30);
     return selected;
   };
+
+  const facts = Array.isArray(profile.explicitFacts) ? profile.explicitFacts : [];
+  if (/(o que você sabe sobre mim|o que voce sabe sobre mim|o que lembra de mim|o que tu lembra de mim|o que você lembra|o que voce lembra)/i.test(t)) {
+    if (facts.length) return "Lembro do que tu me contou explicitamente: " + facts.slice(-8).join("; ") + ". Vou atualizando isso conforme a conversa continua.";
+    return "Ainda tô começando a guardar coisas sobre ti. Me conta teu nome ou alguma preferência importante e eu tento lembrar disso nas próximas conversas.";
+  }
+  if (/(qual (é o )?meu nome|como eu me chamo|lembra meu nome|qual (é o )?meu apelido|como é meu apelido)/i.test(t)) {
+    const fact = [...facts].reverse().find(item => /\b(meu nome é|meu nome e|me chama de|pode me chamar de|meu apelido é|meu apelido e)\b/i.test(item));
+    if (fact) return "Pelo que tu me contou, " + fact.replace(/[.!?]+$/, "") + ".";
+    return "Ainda não tenho teu nome ou apelido salvo com segurança. Como tu prefere que eu te chame?";
+  }
+  if (/(o que eu gosto|do que eu gosto|qual minha preferência|qual minha preferencia|o que eu prefiro)/i.test(t)) {
+    const matches = facts.filter(item => /\b(gosto de|prefiro|não gosto de|nao gosto de)\b/i.test(item));
+    if (matches.length) return "Tu já me contou isso: " + matches.slice(-6).join("; ") + ".";
+    return "Ainda não guardei uma preferência tua com segurança. Se tu me contar de forma direta, posso registrar.";
+  }
 
   if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) {
     const learned = Object.entries(profile?.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1])[0]?.[0];
