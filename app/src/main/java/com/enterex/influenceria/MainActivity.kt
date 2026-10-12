@@ -314,9 +314,9 @@ class MainActivity : Activity() {
         if (!folder.exists()) folder.mkdirs()
         val files = folder.listFiles()?.filter { it.isFile }?.sortedByDescending { it.lastModified() } ?: emptyList()
         folderContents.text = if (files.isEmpty()) {
-            "📁  \${selectedLibraryFolder}\n\nEsta pasta está vazia. Usa “Adicionar fotos à Ayla” para colocar imagens aqui."
+            "📁  ${selectedLibraryFolder}\n\nEsta pasta está vazia. Usa “Adicionar fotos à Ayla” para colocar imagens aqui."
         } else {
-            "📁  \${selectedLibraryFolder}  ·  \${files.size} arquivo(s)\nOs itens abaixo podem ser removidos individualmente."
+            "📁  ${selectedLibraryFolder}  ·  ${files.size} arquivo(s)\nOs itens abaixo podem ser removidos individualmente."
         }
         if (::folderFileList.isInitialized) {
             folderFileList.removeAllViews()
@@ -328,12 +328,12 @@ class MainActivity : Activity() {
                     background = roundedSolid(Color.rgb(30, 37, 57), dp(12))
                 }
                 val kb = (file.length() / 1024).coerceAtLeast(1)
-                val name = label("\${file.name}\n\${kb} KB", 12, Color.rgb(244, 246, 255), false)
+                val name = label("${file.name}\n${kb} KB", 12, Color.rgb(244, 246, 255), false)
                 row.addView(name, LinearLayout.LayoutParams(0, -2, 1f))
                 val remove = actionButton("Remover", Color.rgb(126, 47, 70)) {
                     AlertDialog.Builder(this)
                         .setTitle("Remover arquivo?")
-                        .setMessage("Ayla vai perder acesso a este arquivo da biblioteca. Isso não apaga uma cópia que exista fora do app.\n\n\${file.name}")
+                        .setMessage("Ayla vai perder acesso a este arquivo da biblioteca. Isso não apaga uma cópia que exista fora do app.\n\n${file.name}")
                         .setNegativeButton("Cancelar", null)
                         .setPositiveButton("Remover") { _, _ ->
                             if (file.exists() && file.delete()) {
@@ -408,14 +408,14 @@ class MainActivity : Activity() {
                 try {
                     val folder = java.io.File(java.io.File(filesDir, "AylaLibrary"), destinationFolderName)
                     folder.mkdirs()
-                    val displayName = queryDisplayName(uri) ?: "arquivo_\${System.currentTimeMillis()}"
+                    val displayName = queryDisplayName(uri) ?: "arquivo_${System.currentTimeMillis()}"
                     val cleanName = displayName.map { ch -> if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|') '_' else ch }.joinToString("").take(100)
                     var target = java.io.File(folder, cleanName)
                     if (target.exists()) {
                         val dot = cleanName.lastIndexOf('.')
                         val base = if (dot > 0) cleanName.substring(0, dot) else cleanName
                         val ext = if (dot > 0) cleanName.substring(dot) else ""
-                        target = java.io.File(folder, "\${base}_\${System.currentTimeMillis()}\${ext}")
+                        target = java.io.File(folder, "${base}_${System.currentTimeMillis()}${ext}")
                     }
                     contentResolver.openInputStream(uri).use { input ->
                         if (input == null) throw IllegalStateException("Não consegui abrir esse arquivo.")
@@ -428,7 +428,7 @@ class MainActivity : Activity() {
             }
             runOnUiThread {
                 refreshFolderContents()
-                val message = if (failed == 0) "\${imported} arquivo(s) salvo(s) em \${destinationFolderName}." else "\${imported} salvo(s), \${failed} não puderam ser importados."
+                val message = if (failed == 0) "${imported} arquivo(s) salvo(s) em ${destinationFolderName}." else "${imported} salvo(s), ${failed} não puderam ser importados."
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
         }.start()
