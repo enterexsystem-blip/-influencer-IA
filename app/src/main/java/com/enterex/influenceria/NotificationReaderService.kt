@@ -20,6 +20,11 @@ class NotificationReaderService : NotificationListenerService() {
         private const val DEFAULT_FRIENDSHIP = 65
     }
 
+    private fun setReplyStatus(prefs: android.content.SharedPreferences, status: String) {
+        prefs.edit().putString("last_auto_reply_status", status)
+            .putLong("last_auto_reply_status_time", System.currentTimeMillis()).apply()
+    }
+
     private fun normalized(value: String): String =
         value.lowercase().replace("@", "").replace(Regex("[^a-z0-9._]"), "")
 
@@ -65,17 +70,37 @@ class NotificationReaderService : NotificationListenerService() {
             .putLong(MainActivity.KEY_TIME, System.currentTimeMillis())
             .apply()
 
-        if (!prefs.getBoolean(AUTO_REPLY_ENABLED, false)) return
-        if (text.isBlank() || sbn.isGroup || sbn.notification.category == Notification.CATEGORY_SERVICE) return
+        if (!prefs.getBoolean(AUTO_REPLY_ENABLED, false)) {
+            setReplyStatus(prefs, "Notificação lida, mas as respostas automáticas estão desligadas.")
+            return
+        }
+        if (text.isBlank()) {
+            setReplyStatus(prefs, "Notificação recebida sem texto de mensagem.")
+            return
+        }
+        if (sbn.notification.category == Notification.CATEGORY_SERVICE) {
+            setReplyStatus(prefs, "Notificação ignorada por ser um serviço do Android.")
+            return
+        }
 
+        // Não descartar sbn.isGroup: notificações comuns também podem ser agrupadas pelo Android.
         val action = sbn.notification.actions?.firstOrNull { candidate ->
             !candidate.remoteInputs.isNullOrEmpty() && candidate.actionIntent != null
-        } ?: return
-        val remoteInputs = action.remoteInputs ?: return
+        }
+        if (action == null) {
+            setReplyStatus(prefs, "O Instagram notificou a mensagem, mas não ofereceu resposta rápida nesta notificação.")
+            return
+        }
+        val remoteInputs = action.remoteInputs
+        if (remoteInputs.isNullOrEmpty()) {
+            setReplyStatus(prefs, "A notificação não contém um campo de resposta compatível.")
+            return
+        }
 
         val dedupeKey = "auto_reply_seen_" + sbn.key.hashCode() + "_" + sbn.postTime
         if (prefs.getBoolean(dedupeKey, false)) return
         prefs.edit().putBoolean(dedupeKey, true).apply()
+        setReplyStatus(prefs, "Mensagem detectada. Preparando resposta…")
 
         val creator = isCreator(title, text)
         val fKey = friendshipKey(sbn.packageName, title)
@@ -126,7 +151,10 @@ class NotificationReaderService : NotificationListenerService() {
                 } finally {
                     connection.disconnect()
                 }
-                if (reply.isBlank()) return@Thread
+                if (reply.isBlank()) {
+                    setReplyStatus(prefs, "O servidor não devolveu uma resposta de texto.")
+                    return@Thread
+                }
 
                 val intent = Intent()
                 val results = Bundle()
@@ -134,12 +162,14 @@ class NotificationReaderService : NotificationListenerService() {
                 results.putCharSequence(remoteInput.resultKey, reply)
                 RemoteInput.addResultsToIntent(remoteInputs, intent, results)
                 action.actionIntent.send(this, 0, intent)
+                setReplyStatus(prefs, if (creator) "Resposta enviada para Salem." else "Resposta enviada pelo botão de resposta da notificação.")
 
                 if (!creator) {
                     prefs.edit().putInt(fKey, (friendship + 2).coerceAtMost(100)).apply()
                 }
-            } catch (_: Exception) {
-                // Avoid logging private notification contents or generated replies.
+            } catch (error: Exception) {
+                setReplyStatus(prefs, "Falha ao responder: ${error.javaClass.simpleName}. Confira a conexão e a notificação.")
+                // Não registrar conteúdo privado das notificações nem das respostas.
             }
         }.start()
     }
