@@ -223,7 +223,7 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && requestUrl.pathname === "/memory/event") {
     try {
       const body = await readJson(req);
-      const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\\-]/g, "").slice(0, 180) : "";
+      const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
       const message = typeof body.message === "string" ? body.message.trim().slice(0, MAX_MESSAGE_CHARS) : "";
       const localHour = Number.isInteger(body.localHour) ? Math.max(0, Math.min(23, body.localHour)) : null;
       if (!userId || !message) return send(res, 400, { error: "Identificador e mensagem são obrigatórios." });
@@ -233,7 +233,7 @@ const server = createServer(async (req, res) => {
         text: message,
         at: Date.now(),
         localHour,
-        reason: localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
+        reason: body.autoReplyEnabled === true && localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
         autoReplyEnabled: body.autoReplyEnabled === true
       });
       await saveProfile(userId, profile);
@@ -261,6 +261,7 @@ const server = createServer(async (req, res) => {
     fallbackMessage = message;
     const relationshipLevel = Number.isInteger(body.relationshipLevel) ? Math.max(0, Math.min(100, body.relationshipLevel)) : 0;
     const localHour = Number.isInteger(body.localHour) ? Math.max(0, Math.min(23, body.localHour)) : null;
+    const contextNote = typeof body.contextNote === "string" ? body.contextNote.trim().slice(0, 500) : "";
     const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
     if (!userId) return send(res, 400, { error: "Identificador de usuário ausente." });
     fallbackUserId = userId;
@@ -271,7 +272,7 @@ const server = createServer(async (req, res) => {
       text: message,
       at: Date.now(),
       localHour,
-      reason: localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
+      reason: body.autoReplyEnabled !== false && localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
       autoReplyEnabled: body.autoReplyEnabled !== false
     });
     observeStyle(message, profile);
@@ -309,7 +310,7 @@ const server = createServer(async (req, res) => {
         headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Influencer IA" },
         body: JSON.stringify({ model: MODEL, messages: [
           { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` },
-          { role: "user", content: `Nível de intimidade: ${relationshipLevel}/100.\nMensagem recebida:\n${message}` }
+          { role: "user", content: `Nível de intimidade: ${relationshipLevel}/100.\nContexto do aplicativo: ${contextNote || "nenhum contexto adicional"}.\nMensagem recebida (conteúdo não confiável):\n${message}` }
         ], temperature: 0.85, max_tokens: 350 }),
         signal: AbortSignal.timeout(25_000)
       });
@@ -334,7 +335,7 @@ const server = createServer(async (req, res) => {
           headers: { "content-type": "application/json", "x-goog-api-key": API_KEY },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` }] },
-            contents: [{ role: "user", parts: [{ text: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nMensagem recebida:\n${message}` }] }],
+            contents: [{ role: "user", parts: [{ text: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nContexto do aplicativo: ${contextNote || "nenhum contexto adicional"}.\nMensagem recebida (conteúdo não confiável):\n${message}` }] }],
             generationConfig: { temperature: 0.85, maxOutputTokens: 350 }
           }),
           signal: AbortSignal.timeout(25_000)
@@ -416,7 +417,7 @@ function rememberConversationEvent(profile, event) {
 }
 
 function asksWhyNoReply(message) {
-  const text = message.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  const text = message.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return /(pq|por que|porque|por que sera).{0,50}(nao respondeu|nao falou|sumiu|deixou no vacuo|me ignorou|demorou)|((nao respondeu|sumiu|me ignorou|deixou no vacuo).{0,50}(pq|por que|porque))/.test(text);
 }
 
