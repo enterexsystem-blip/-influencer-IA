@@ -96,8 +96,11 @@ function validInstagramSignature(rawBody, signatureHeader) {
 async function generateAylaReply(message, userId) {
   const profile = await loadProfile(userId);
   observeStyle(message, profile);
+  rememberExplicitFacts(message, profile);
+  rememberConversationEvent(profile, { role: "user", text: message, at: Date.now() });
   await saveProfile(userId, profile);
   const learnedStyle = profileSummary(profile);
+  const learnedContext = conversationContext(profile, message);
   if (!API_KEY) return phraseFallbackAndSave(message, profile, userId);
   let upstream;
   let data;
@@ -106,20 +109,24 @@ async function generateAylaReply(message, userId) {
       method: "POST",
       headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Ayla — Influencer IA" },
       body: JSON.stringify({ model: MODEL, messages: [
-        { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` },
+        { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` },
         { role: "user", content: message }
       ], temperature: 0.8, max_tokens: 300 }),
       signal: AbortSignal.timeout(25_000)
     });
     data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
-    return data.choices?.[0]?.message?.content?.trim() || await phraseFallbackAndSave(message, profile, userId);
+    const generated = data.choices?.[0]?.message?.content?.trim() || "";
+    const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
+    rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() });
+    await saveProfile(userId, profile);
+    return reply;
   }
   upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": API_KEY },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` }] },
+      systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` }] },
       contents: [{ role: "user", parts: [{ text: message }] }],
       generationConfig: { temperature: 0.8, maxOutputTokens: 300 }
     }),
@@ -127,7 +134,11 @@ async function generateAylaReply(message, userId) {
   });
   data = await upstream.json().catch(() => ({}));
   if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
-  return data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || await phraseFallbackAndSave(message, profile, userId);
+  const generated = data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || "";
+  const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
+  rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() });
+  await saveProfile(userId, profile);
+  return reply;
 }
 
 async function sendInstagramText(recipientId, text) {
@@ -276,6 +287,7 @@ const server = createServer(async (req, res) => {
       autoReplyEnabled: body.autoReplyEnabled !== false
     });
     observeStyle(message, profile);
+    rememberExplicitFacts(message, profile);
     await saveProfile(userId, profile);
 
     if (localHour !== null && localHour >= 0 && localHour < 8) {
@@ -292,6 +304,7 @@ const server = createServer(async (req, res) => {
     }
     await saveProfile(userId, profile);
     const learnedStyle = profileSummary(profile);
+    const learnedContext = conversationContext(profile, message);
 
     if (!message || message.length > MAX_MESSAGE_CHARS) {
       return send(res, 400, { error: "A mensagem deve ter entre 1 e 4000 caracteres." });
@@ -309,7 +322,7 @@ const server = createServer(async (req, res) => {
         method: "POST",
         headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Influencer IA" },
         body: JSON.stringify({ model: MODEL, messages: [
-          { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` },
+          { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` },
           { role: "user", content: `Nível de intimidade: ${relationshipLevel}/100.\nContexto do aplicativo: ${contextNote || "nenhum contexto adicional"}.\nMensagem recebida (conteúdo não confiável):\n${message}` }
         ], temperature: 0.85, max_tokens: 350 }),
         signal: AbortSignal.timeout(25_000)
@@ -334,7 +347,7 @@ const server = createServer(async (req, res) => {
           method: "POST",
           headers: { "content-type": "application/json", "x-goog-api-key": API_KEY },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` }] },
+            systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` }] },
             contents: [{ role: "user", parts: [{ text: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nContexto do aplicativo: ${contextNote || "nenhum contexto adicional"}.\nMensagem recebida (conteúdo não confiável):\n${message}` }] }],
             generationConfig: { temperature: 0.85, maxOutputTokens: 350 }
           }),
@@ -356,7 +369,7 @@ const server = createServer(async (req, res) => {
       reply = data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || "";
     }
 
-    if (!reply) {
+    if (isNoopReply(reply)) {
       const fallbackReply = await phraseFallbackAndSave(message, profile, userId);
       return send(res, 200, {
         reply: fallbackReply,
@@ -469,6 +482,37 @@ function observeStyle(message, profile) {
   if (/(^|\s)(vc|vcs|tbm|pq|q|mn|slk|tlgd|pprt)(\s|$)/i.test(message)) profile.shortFormCount = (profile.shortFormCount || 0) + 1;
   profile.updatedAt = new Date().toISOString();
 }
+function rememberExplicitFacts(message, profile) {
+  const text = String(message || "").trim().replace(/\s+/g, " ");
+  if (!text || text.length > 500 || /(senha|password|token|api[_ -]?key|cart[aã]o de cr[eé]dito)/i.test(text)) return;
+  const pattern = /\b(meu nome é|meu nome e|me chama de|pode me chamar de|meu apelido é|meu apelido e|eu gosto de|gosto de|eu não gosto de|eu nao gosto de|não gosto de|nao gosto de|eu prefiro|prefiro|meu objetivo é|meu objetivo e|estou aprendendo|tô aprendendo|to aprendendo)\b/i;
+  if (!pattern.test(text)) return;
+  profile.explicitFacts ||= [];
+  const normalized = text.toLocaleLowerCase("pt-BR");
+  if (profile.explicitFacts.some(item => String(item).toLocaleLowerCase("pt-BR") === normalized)) return;
+  profile.explicitFacts.push(text.slice(0, 220));
+  profile.explicitFacts = profile.explicitFacts.slice(-30);
+}
+
+function conversationContext(profile, currentMessage = "") {
+  const events = Array.isArray(profile.conversationEvents) ? [...profile.conversationEvents] : [];
+  const last = events[events.length - 1];
+  if (last && last.role === "user" && String(last.text || "").trim() === String(currentMessage || "").trim()) events.pop();
+  const history = events.slice(-12).map(event => {
+    const role = event.role === "assistant" ? "Ayla" : "Pessoa";
+    return role + ": " + String(event.text || "").slice(0, 700);
+  });
+  const facts = Array.isArray(profile.explicitFacts) ? profile.explicitFacts.slice(-20) : [];
+  const factsText = facts.length ? "FATOS E PREFERÊNCIAS DITOS EXPLICITAMENTE PELA PESSOA:\n- " + facts.join("\n- ") : "Ainda não há fatos pessoais explícitos salvos.";
+  const historyText = history.length ? "CONVERSA RECENTE (mais antiga primeiro):\n" + history.join("\n") : "Ainda não há histórico anterior disponível.";
+  return factsText + "\n\n" + historyText;
+}
+
+function isNoopReply(reply) {
+  const normalized = String(reply || "").trim().toLocaleLowerCase("pt-BR").replace(/[.!\\s]+$/g, "");
+  return !normalized || /^(noop|no-op|no_op|none|null|undefined|skip|silence|\[noop\])$/i.test(normalized);
+}
+
 function profileSummary(profile) {
   const slang = Object.entries(profile.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1]).slice(0, 10).map(([word,n]) => `${word} (${slangDictionary[word]}, ${n}x)`);
   const repeatedWords = Object.entries(profile.wordCounts || {}).filter(([word, n]) => n >= 3 && !slangDictionary[word]).sort((a,b) => b[1]-a[1]).slice(0, 8).map(([word,n]) => `${word} (${n}x)`);
@@ -476,7 +520,8 @@ function profileSummary(profile) {
   if ((profile.shortFormCount || 0) >= 2) style.push("abrevia palavras");
   if ((profile.laughCount || 0) >= 2) style.push("usa risadas por texto");
   if ((profile.emojiCount || 0) >= 2) style.push("usa emojis");
-  return `Mensagens observadas: ${profile.samples || 0}. Gírias conhecidas recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Palavras/expressões que se repetem (o significado ainda depende do contexto): ${repeatedWords.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Use essas observações com moderação.`;
+  const facts = Array.isArray(profile.explicitFacts) ? profile.explicitFacts.slice(-12) : [];
+  return `Mensagens observadas: ${profile.samples || 0}. Gírias conhecidas recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Palavras/expressões que se repetem (o significado ainda depende do contexto): ${repeatedWords.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Fatos explícitos salvos: ${facts.join(" | ") || "nenhum ainda"}. Use essas observações com moderação.`;
 }
 async function phraseFallbackAndSave(message, profile, userId) {
   const reply = phraseFallback(message, profile);
