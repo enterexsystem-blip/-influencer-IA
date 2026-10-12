@@ -61,6 +61,8 @@ class MainActivity : Activity() {
     private var appChoices: List<AppChoice> = emptyList()
     private lateinit var moodPicker: Spinner
     private lateinit var moodDescription: TextView
+    private lateinit var moodModeButton: Button
+    private var updatingMoodProgrammatically = false
     private lateinit var folderPicker: Spinner
     private lateinit var folderContents: TextView
     private lateinit var folderFileList: LinearLayout
@@ -120,22 +122,26 @@ class MainActivity : Activity() {
         moodPicker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (updatingMoodProgrammatically) return
+                val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 val mood = moods.getOrElse(position) { moods[0] }
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString("ayla_mood", mood).apply()
-                moodDescription.text = when (mood.substringAfter("  ")) {
-                    "Feliz" -> "Hoje ela está leve e de bom humor."
-                    "Carinhosa" -> "Um jeito mais doce e acolhedor de conversar."
-                    "Tranquila" -> "No ritmo calmo, sem pressa."
-                    "Curiosa" -> "Atenta, fazendo perguntas e querendo entender."
-                    "Cansada" -> "Um clima mais quietinho e respostas mais suaves."
-                    "Sensível" -> "Mais delicada com assuntos e sentimentos."
-                    "Confiante" -> "Segura de si e direta, sem perder a gentileza."
-                    "Triste" -> "Um estado registrado por você; não significa que a IA realmente sinta tristeza."
-                    "Irritada" -> "Um tom mais sério, sem ofender ninguém."
-                    else -> "Cheia de energia e pronta para conversar."
+                if (prefs.getBoolean("ayla_mood_auto", true)) {
+                    applyMoodFromText(prefs.getString(KEY_TEXT, "").orEmpty())
+                    return
                 }
+                prefs.edit().putString("ayla_mood", mood).apply()
+                moodDescription.text = moodDescriptionFor(mood)
             }
         }
+        moodModeButton = actionButton("Humor automático: ATIVADO", Color.rgb(24, 27, 32)) {
+            val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val enabled = !prefs.getBoolean("ayla_mood_auto", true)
+            prefs.edit().putBoolean("ayla_mood_auto", enabled).apply()
+            updateMoodModeButton()
+            if (enabled) applyMoodFromText(prefs.getString(KEY_TEXT, "").orEmpty())
+            else moodDescription.text = "Modo manual ativado. Agora tu escolhe o estado no menu."
+        }
+        moodCard.addView(moodModeButton, fullWidthWithTop())
         content.addView(moodCard, fullWidthWithTop())
 
         val statusCard = card(panel)
@@ -247,6 +253,52 @@ class MainActivity : Activity() {
         setContentView(root)
         setupLibrary()
         updateAutoReplyButton()
+        updateMoodModeButton()
+        applyMoodFromText(getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(KEY_TEXT, "").orEmpty())
+    }
+
+    private fun moodDescriptionFor(mood: String): String = when (mood.substringAfter("  ")) {
+        "Feliz" -> "Tom leve e positivo, usado quando a conversa indica animação."
+        "Carinhosa" -> "Um jeito mais doce e acolhedor de conversar."
+        "Tranquila" -> "No ritmo calmo, sem pressa."
+        "Curiosa" -> "Atenta, fazendo perguntas e tentando entender."
+        "Cansada" -> "Um clima mais quietinho e respostas mais suaves."
+        "Sensível" -> "Mais delicada com assuntos e sentimentos."
+        "Confiante" -> "Segura de si e direta, sem perder a gentileza."
+        "Triste" -> "Tom acolhedor quando a conversa indica tristeza; não significa que a IA sinta tristeza."
+        "Irritada" -> "Tom mais sério quando há frustração, sem ofender ninguém."
+        else -> "Tom mais animado quando a conversa indica empolgação."
+    }
+
+    private fun updateMoodModeButton() {
+        if (!::moodModeButton.isInitialized) return
+        val automatic = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean("ayla_mood_auto", true)
+        moodModeButton.text = if (automatic) "Humor automático: ATIVADO" else "Humor automático: DESATIVADO · modo manual"
+    }
+
+    private fun applyMoodFromText(text: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        if (!prefs.getBoolean("ayla_mood_auto", true) || text.isBlank() || !::moodPicker.isInitialized) return
+        val t = text.lowercase(java.util.Locale.ROOT)
+        val target = when {
+            listOf("tô triste", "to triste", "tô mal", "to mal", "me sinto sozinho", "me sinto sozinha", "desanimado", "desanimada", "decepcionado", "chateado").any { t.contains(it) } -> 5
+            listOf("raiva", "irritado", "irritada", "puto da vida", "puta da vida", "que ódio", "que odio", "me estressa", "revoltado").any { t.contains(it) } -> 8
+            listOf("te amo", "amo você", "amo voce", "saudade", "sinto sua falta", "carinho").any { t.contains(it) } -> 1
+            listOf("cansado", "cansada", "exausto", "exausta", "vou dormir", "tô com sono", "to com sono").any { t.contains(it) } -> 4
+            listOf("amei", "feliz", "consegui", "deu certo", "boa notícia", "boa noticia", "tô animado", "to animado", "empolgado").any { t.contains(it) } -> 9
+            listOf("obrigado", "obrigada", "valeu", "kkkk", "hahaha", "rsrs").any { t.contains(it) } -> 0
+            listOf("oi", "olá", "ola", "eae", "eai", "salve", "opa", "bom dia", "boa tarde", "boa noite").any { t.trim() == it } -> 2
+            t.contains("?") || listOf("como", "por que", "porque", "qual", "quem", "quando", "onde", "explica", "me fala mais").any { t.contains(it) } -> 3
+            listOf("consegui", "resolvi", "tenho certeza", "confio", "vou fazer").any { t.contains(it) } -> 6
+            else -> return
+        }
+        val moods = listOf("😊  Feliz", "🥰  Carinhosa", "😌  Tranquila", "🤔  Curiosa", "😴  Cansada", "🥺  Sensível", "😎  Confiante", "😔  Triste", "😤  Irritada", "✨  Animada")
+        val mood = moods[target]
+        prefs.edit().putString("ayla_mood", mood).putString("ayla_mood_reason", "Inferido da conversa mais recente").apply()
+        updatingMoodProgrammatically = true
+        moodPicker.setSelection(target, false)
+        updatingMoodProgrammatically = false
+        moodDescription.text = moodDescriptionFor(mood) + " (ajustado automaticamente pela conversa)"
     }
 
     private fun roundedSolid(color: Int, radius: Int): GradientDrawable =
@@ -560,6 +612,7 @@ class MainActivity : Activity() {
             }
             runOnUiThread {
                 replyText.text = result
+                applyMoodFromText(message + " " + result)
                 sendButton.isEnabled = true
                 sendButton.text = "Gerar resposta com IA"
             }
@@ -605,6 +658,8 @@ class MainActivity : Activity() {
             "Recebida: " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp))
         } else ""
         autoReplyStatusText.text = prefs.getString("last_auto_reply_status", "Ayla ainda não tentou responder nenhuma notificação.").orEmpty()
+        if (prefs.getBoolean("ayla_mood_auto", true)) applyMoodFromText(message)
+        updateMoodModeButton()
         updateAutoReplyButton()
     }
 
