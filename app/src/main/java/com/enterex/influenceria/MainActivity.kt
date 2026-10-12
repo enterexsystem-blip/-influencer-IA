@@ -269,7 +269,7 @@ class MainActivity : Activity() {
     private fun setupLibrary() {
         val root = java.io.File(filesDir, "AylaLibrary")
         if (!root.exists()) root.mkdirs()
-        val defaults = listOf("Fotos", "Referências", "Avatares", "Memórias visuais", "Documentos", "Outros")
+        val defaults = listOf("Fotos", "Referências", "Avatares", "Memórias visuais", "Documentos", "Outros", "Comidas", "Fotos pessoais", "O que estou fazendo", "Fotos sensuais 🔒")
         defaults.forEach { name -> java.io.File(root, safeFolderName(name)).mkdirs() }
         reloadLibraryFolders()
         folderPicker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -290,7 +290,7 @@ class MainActivity : Activity() {
         libraryFolders = (root.listFiles()?.filter { it.isDirectory }?.map { it.name } ?: emptyList())
             .sortedBy { it.lowercase() }.toMutableList()
         if (libraryFolders.isEmpty()) {
-            listOf("Fotos", "Referências", "Avatares", "Memórias visuais", "Documentos", "Outros").forEach {
+            listOf("Fotos", "Referências", "Avatares", "Memórias visuais", "Documentos", "Outros", "Comidas", "Fotos pessoais", "O que estou fazendo", "Fotos sensuais 🔒").forEach {
                 java.io.File(root, it).mkdirs()
             }
             libraryFolders = root.listFiles()?.filter { it.isDirectory }?.map { it.name }?.sortedBy { it.lowercase() }?.toMutableList() ?: mutableListOf("Fotos")
