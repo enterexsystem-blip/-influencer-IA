@@ -157,7 +157,7 @@ class MainActivity : Activity() {
         appCard.addView(sectionTitle("03  /  APLICATIVO", "Origem das notificações"), matchWrap())
         appPicker = Spinner(this)
         appCard.addView(appPicker, fullWidthWithTop())
-        appCard.addView(actionButton("Atualizar lista de aplicativos", Color.rgb(48, 59, 88)) { loadAppChoices() }, fullWidthWithTop())
+        appCard.addView(actionButton("Atualizar lista de aplicativos", Color.rgb(24, 27, 32)) { loadAppChoices() }, fullWidthWithTop())
         content.addView(appCard, fullWidthWithTop())
         loadAppChoices()
 
@@ -189,8 +189,8 @@ class MainActivity : Activity() {
         inboxCard.addView(timeText, matchWrap())
         autoReplyStatusText = label("Ayla ainda não tentou responder nenhuma notificação.", 12, muted, false).apply { setPadding(0, dp(10), 0, 0); setTextIsSelectable(true) }
         inboxCard.addView(autoReplyStatusText, matchWrap())
-        inboxCard.addView(actionButton("Atualizar notificações", Color.rgb(48, 59, 88)) { refreshStatusAndPreview() }, fullWidthWithTop())
-        inboxCard.addView(actionButton("Copiar última resposta", Color.rgb(48, 59, 88)) {
+        inboxCard.addView(actionButton("Atualizar notificações", Color.rgb(24, 27, 32)) { refreshStatusAndPreview() }, fullWidthWithTop())
+        inboxCard.addView(actionButton("Copiar última resposta", Color.rgb(24, 27, 32)) {
             val draft = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("last_auto_reply_draft", "").orEmpty()
             if (draft.isBlank()) Toast.makeText(this, "Ainda não existe uma resposta gerada.", Toast.LENGTH_SHORT).show()
             else {
@@ -215,7 +215,7 @@ class MainActivity : Activity() {
         chatCard.addView(sendButton, fullWidthWithTop())
         replyText = label("A resposta da Ayla aparecerá aqui.", 14, white, false).apply {
             setPadding(dp(14), dp(14), dp(14), dp(14))
-            this.background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
+            this.background = roundedSolid(Color.rgb(9, 11, 14), dp(14))
         }
         chatCard.addView(replyText, fullWidthWithTop())
         content.addView(chatCard, fullWidthWithTop())
@@ -225,12 +225,12 @@ class MainActivity : Activity() {
         libraryCard.addView(label("Os arquivos ficam guardados dentro do armazenamento privado do app. Escolhe uma pasta e importa imagens ou outros arquivos pelo seletor do Android.", 12, muted, false).apply { setPadding(0, dp(8), 0, 0) }, matchWrap())
         folderPicker = Spinner(this)
         libraryCard.addView(folderPicker, fullWidthWithTop())
-        libraryCard.addView(actionButton("＋ Criar pasta", Color.rgb(48, 59, 88)) { showCreateFolderDialog() }, fullWidthWithTop())
+        libraryCard.addView(actionButton("＋ Criar pasta", Color.rgb(24, 27, 32)) { showCreateFolderDialog() }, fullWidthWithTop())
         libraryCard.addView(actionButton("＋ Adicionar fotos à Ayla", accent) { openPhotoPicker() }, fullWidthWithTop())
-        libraryCard.addView(actionButton("＋ Importar outros arquivos", Color.rgb(48, 59, 88)) { openImportPicker() }, fullWidthWithTop())
+        libraryCard.addView(actionButton("＋ Importar outros arquivos", Color.rgb(24, 27, 32)) { openImportPicker() }, fullWidthWithTop())
         folderContents = label("Carregando pastas…", 13, white, false).apply {
             setPadding(dp(14), dp(14), dp(14), dp(14))
-            this.background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
+            this.background = roundedSolid(Color.rgb(9, 11, 14), dp(14))
         }
         libraryCard.addView(folderContents, fullWidthWithTop())
         folderFileList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -328,10 +328,10 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(10), dp(6), dp(6), dp(6))
-                    this.background = roundedSolid(Color.rgb(30, 37, 57), dp(12))
+                    this.background = roundedSolid(Color.rgb(9, 11, 14), dp(12))
                 }
                 val kb = (file.length() / 1024).coerceAtLeast(1)
-                val name = label("${file.name}\n${kb} KB", 12, Color.rgb(244, 246, 255), false)
+                val name = label("${file.name}\n${kb} KB", 12, Color.rgb(225, 229, 235), false)
                 row.addView(name, LinearLayout.LayoutParams(0, -2, 1f))
                 val remove = actionButton("Remover", Color.rgb(126, 47, 70)) {
                     AlertDialog.Builder(this)
