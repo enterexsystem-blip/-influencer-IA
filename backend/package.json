@@ -1,0 +1,13 @@
+{
+  "name": "influencer-ia-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend seguro para conectar a influencer IA ao Google Gemini",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
