@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -14,6 +15,13 @@ class NotificationReaderService : NotificationListenerService() {
     companion object {
         const val AUTO_REPLY_ENABLED = "auto_reply_enabled"
         private const val BACKEND_URL = "https://influencer-ia-backend.onrender.com"
+    }
+
+    private fun contactMemoryId(packageName: String, title: String): String {
+        val raw = "$packageName|${title.trim().lowercase()}"
+        val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
+        val shortHash = digest.take(16).joinToString("") { "%02x".format(it) }
+        return "contact:$shortHash"
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -63,6 +71,7 @@ class NotificationReaderService : NotificationListenerService() {
                     val payload = JSONObject()
                         .put("message", "Responda naturalmente a esta mensagem recebida. Nome exibido do contato: $title. Mensagem: $text")
                         .put("relationshipLevel", 0)
+                        .put("userId", contactMemoryId(sbn.packageName, title))
                         .toString()
                     connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
                     if (connection.responseCode !in 200..299) return@Thread
