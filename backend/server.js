@@ -247,6 +247,9 @@ const server = createServer(async (req, res) => {
         reason: body.autoReplyEnabled === true && localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
         autoReplyEnabled: body.autoReplyEnabled === true
       });
+      observeStyle(message, profile);
+      rememberExplicitFacts(message, profile);
+      profile.lastSeenAt = new Date().toISOString();
       await saveProfile(userId, profile);
       return send(res, 200, { saved: true });
     } catch (error) {
