@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 
 const PORT = Number(process.env.PORT || 8080);
-const API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+const API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 const MAX_BODY_BYTES = 16_000;
 const MAX_MESSAGE_CHARS = 4_000;
 const WINDOW_MS = 60_000;
@@ -58,16 +58,25 @@ async function readJson(req) {
 
 const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") {
-    return send(res, 200, { ok: true, service: "influencer-ia-backend", provider: "OpenRouter" });
+    return send(res, 200, {
+      ok: true,
+      service: "influencer-ia-backend",
+      provider: "Google Gemini",
+      model: MODEL,
+      configured: Boolean(API_KEY)
+    });
   }
+
   if (req.method !== "POST" || req.url !== "/chat") {
     return send(res, 404, { error: "Rota não encontrada." });
   }
+
   if (rateLimited(req)) {
     return send(res, 429, { error: "Muitas solicitações. Tente novamente em instantes." });
   }
+
   if (!API_KEY) {
-    return send(res, 503, { error: "Backend ainda não configurado: falta OPENROUTER_API_KEY." });
+    return send(res, 503, { error: "Backend ainda não configurado: falta GEMINI_API_KEY." });
   }
 
   try {
@@ -81,49 +90,77 @@ const server = createServer(async (req, res) => {
       return send(res, 400, { error: "A mensagem deve ter entre 1 e 4000 caracteres." });
     }
 
-    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "authorization": `Bearer ${API_KEY}`,
-        "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA",
-        "x-title": "Influencer IA"
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: persona },
-          { role: "user", content: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nMensagem recebida:\n${message}` }
-        ],
-        temperature: 0.85,
-        max_tokens: 350
-      }),
-      signal: AbortSignal.timeout(25_000)
-    });
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": API_KEY
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: persona }]
+          },
+          contents: [{
+            role: "user",
+            parts: [{
+              text: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nMensagem recebida:\n${message}`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.85,
+            maxOutputTokens: 350
+          }
+        }),
+        signal: AbortSignal.timeout(25_000)
+      }
+    );
 
     const data = await upstream.json().catch(() => ({}));
+
     if (!upstream.ok) {
-      console.error("OpenRouter respondeu com status", upstream.status);
-      return send(res, upstream.status === 429 ? 429 : 502, {
-        error: upstream.status === 429
-          ? "Limite gratuito da IA atingido ou provedores ocupados. Tente mais tarde."
-          : "Não foi possível obter resposta da IA. Verifique a configuração da chave e o modelo."
+      console.error("Gemini respondeu com status", upstream.status);
+      if (upstream.status === 429) {
+        return send(res, 429, {
+          error: "Limite de solicitações do Gemini atingido. Aguarde e tente novamente."
+        });
+      }
+      if (upstream.status === 400 || upstream.status === 403) {
+        return send(res, 502, {
+          error: "O Gemini recusou a solicitação. Confira a chave, o acesso à API e o modelo configurado."
+        });
+      }
+      if (upstream.status === 401) {
+        return send(res, 502, {
+          error: "A chave do Gemini foi rejeitada. Confira GEMINI_API_KEY nas variáveis do servidor."
+        });
+      }
+      return send(res, 502, { error: "Não foi possível obter resposta do Gemini neste momento." });
+    }
+
+    const reply = data.candidates?.[0]?.content?.parts
+      ?.map(part => typeof part.text === "string" ? part.text : "")
+      .join("")
+      .trim();
+
+    if (!reply) {
+      const reason = data.promptFeedback?.blockReason;
+      return send(res, 502, {
+        error: reason
+          ? "O Gemini bloqueou esta mensagem. Tente reformular o texto."
+          : "O Gemini não retornou uma resposta de texto."
       });
     }
 
-    const reply = data.choices?.[0]?.message?.content;
-    if (typeof reply !== "string" || !reply.trim()) {
-      return send(res, 502, { error: "A IA não retornou uma resposta de texto." });
-    }
-
-    return send(res, 200, { reply: reply.trim(), model: data.model || MODEL });
+    return send(res, 200, { reply, model: MODEL, provider: "Google Gemini" });
   } catch (error) {
     if (error?.status) return send(res, error.status, { error: error.message });
     console.error("Falha ao processar solicitação:", error?.name || "Error");
-    return send(res, 502, { error: "Falha temporária ao consultar a IA." });
+    return send(res, 502, { error: "Falha temporária ao consultar o Gemini." });
   }
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Influencer IA backend ouvindo na porta ${PORT}`);
+  console.log(`Influencer IA backend ouvindo na porta ${PORT}; provedor Google Gemini; modelo ${MODEL}`);
 });
