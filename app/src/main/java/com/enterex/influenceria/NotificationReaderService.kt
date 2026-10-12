@@ -84,9 +84,34 @@ class NotificationReaderService : NotificationListenerService() {
             return
         }
 
-        val dedupeKey = "auto_reply_seen_" + sbn.key.hashCode() + "_" + sbn.postTime
-        if (prefs.getBoolean(dedupeKey, false)) return
-        prefs.edit().putBoolean(dedupeKey, true).apply()
+        // Instagram can repost/update the same notification after a reply. Do not
+        // use postTime as the only dedupe key because it changes on notification updates.
+        val now = System.currentTimeMillis()
+        val messageFingerprint = MessageDigest.getInstance("SHA-256")
+            .digest("${sbn.packageName}|${title.lowercase()}|${text.lowercase()}".toByteArray(Charsets.UTF_8))
+            .take(12).joinToString("") { "%02x".format(it) }
+        val dedupeKey = "auto_reply_seen_message_$messageFingerprint"
+        val previousSeenAt = prefs.getLong(dedupeKey, 0L)
+        if (previousSeenAt > 0L && now - previousSeenAt < 10 * 60 * 1000L) {
+            setReplyStatus(prefs, "Notificação repetida ignorada para evitar spam.")
+            return
+        }
+
+        // Extra per-contact cooldown: even if Instagram changes the notification text,
+        // do not auto-send multiple replies to the same chat in quick succession.
+        val contactCooldownKey = "auto_reply_contact_cooldown_" +
+            MessageDigest.getInstance("SHA-256")
+                .digest("${sbn.packageName}|${title.lowercase()}".toByteArray(Charsets.UTF_8))
+                .take(10).joinToString("") { "%02x".format(it) }
+        val previousContactReplyAt = prefs.getLong(contactCooldownKey, 0L)
+        if (previousContactReplyAt > 0L && now - previousContactReplyAt < 60_000L) {
+            setReplyStatus(prefs, "Resposta automática pausada por segurança: aguarde antes de responder novamente a este contato.")
+            return
+        }
+        prefs.edit()
+            .putLong(dedupeKey, now)
+            .putLong(contactCooldownKey, now)
+            .apply()
 
         // O Instagram Lite pode não fornecer RemoteInput. Sem resposta rápida, deixamos
         // a resposta pronta e aguardamos a conversa correspondente aberta no app.
