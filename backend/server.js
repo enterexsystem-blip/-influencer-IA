@@ -139,36 +139,19 @@ const server = createServer(async (req, res) => {
         }
       );
       data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) {
-      console.error("Gemini respondeu com status", upstream.status);
-      if (upstream.status === 429) {
-        return send(res, 429, {
-          error: "Limite de solicitações do Gemini atingido. Aguarde e tente novamente."
-        });
+      if (!upstream.ok) {
+        console.error("Gemini respondeu com status", upstream.status);
+        if (upstream.status === 429) return send(res, 429, { error: "Limite de solicitações do Gemini atingido. Aguarde e tente novamente." });
+        if (upstream.status === 401) return send(res, 502, { error: "A chave do Gemini foi rejeitada. Confira GEMINI_API_KEY ou AI_API_KEY." });
+        if (upstream.status === 400 || upstream.status === 403) return send(res, 502, { error: "O Gemini recusou a solicitação. Confira o acesso à API e o modelo configurado." });
+        return send(res, 502, { error: "Não foi possível obter resposta do Gemini neste momento." });
       }
-      if (upstream.status === 401) return send(res, 502, { error: "A chave do Gemini foi rejeitada. Confira GEMINI_API_KEY ou AI_API_KEY." });
-      if (upstream.status === 400 || upstream.status === 403) {
-        return send(res, 502, {
-          error: "O Gemini recusou a solicitação. Confira a chave, o acesso à API e o modelo configurado."
-        });
-      }
-      if (upstream.status === 401) {
-        return send(res, 502, {
-          error: "A chave do Gemini foi rejeitada. Confira GEMINI_API_KEY nas variáveis do servidor."
-        });
-      }
-      return send(res, 502, { error: "Não foi possível obter resposta do Gemini neste momento." });
+      reply = data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || "";
     }
 
-    reply = reply || data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim();
-
     if (!reply) {
-      const reason = data.promptFeedback?.blockReason;
-      return send(res, 502, {
-        error: reason
-          ? "O Gemini bloqueou esta mensagem. Tente reformular o texto."
-          : "O Gemini não retornou uma resposta de texto."
-      });
+      const reason = data?.promptFeedback?.blockReason;
+      return send(res, 502, { error: reason ? "O Gemini bloqueou esta mensagem. Tente reformular o texto." : "O modelo não retornou uma resposta de texto." });
     }
 
     return send(res, 200, { reply, model: MODEL, provider: PROVIDER, learned: true, memory: learnedStyle });
