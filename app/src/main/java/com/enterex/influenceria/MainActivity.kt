@@ -19,6 +19,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.text.DateFormat
 import java.util.Date
+import java.util.UUID
 
 class MainActivity : Activity() {
     companion object {
@@ -196,7 +197,7 @@ class MainActivity : Activity() {
                     setRequestProperty("Accept", "application/json")
                 }
                 try {
-                    val payload = JSONObject().put("message", message).put("relationshipLevel", 0).toString()
+                    val payload = JSONObject().put("message", message).put("relationshipLevel", 0).put("userId", getOrCreateUserId()).toString()
                     connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
                     val status = connection.responseCode
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
@@ -223,6 +224,15 @@ class MainActivity : Activity() {
                 sendButton.text = "Gerar resposta com IA"
             }
         }.start()
+    }
+
+    private fun getOrCreateUserId(): String {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val existing = prefs.getString("ai_user_id", null)
+        if (!existing.isNullOrBlank()) return existing
+        val created = "app:" + UUID.randomUUID().toString()
+        prefs.edit().putString("ai_user_id", created).apply()
+        return created
     }
 
     private fun refreshStatusAndPreview() {
