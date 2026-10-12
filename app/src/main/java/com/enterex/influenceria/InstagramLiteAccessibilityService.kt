@@ -15,6 +15,18 @@ class InstagramLiteAccessibilityService : AccessibilityService() {
         val prefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
         if (!prefs.getBoolean(NotificationReaderService.AUTO_REPLY_ENABLED, false)) return
         if (!prefs.getBoolean(NotificationReaderService.PENDING_REPLY, false)) return
+        val queuedAt = prefs.getLong(NotificationReaderService.PENDING_REPLY_TIME, 0L)
+        if (queuedAt <= 0L || System.currentTimeMillis() - queuedAt > 60_000L) {
+            prefs.edit()
+                .putBoolean(NotificationReaderService.PENDING_REPLY, false)
+                .remove(NotificationReaderService.PENDING_REPLY_TEXT)
+                .remove(NotificationReaderService.PENDING_REPLY_TITLE)
+                .remove(NotificationReaderService.PENDING_REPLY_PACKAGE)
+                .remove(NotificationReaderService.PENDING_REPLY_MESSAGE)
+                .putString("last_auto_reply_status", "Resposta pendente expirou por segurança. Envie uma nova mensagem para testar novamente.")
+                .apply()
+            return
+        }
 
         val selectedPackage = prefs.getString(MainActivity.KEY_SELECTED_PACKAGE, "").orEmpty()
         val pendingPackage = prefs.getString(NotificationReaderService.PENDING_REPLY_PACKAGE, "").orEmpty()
