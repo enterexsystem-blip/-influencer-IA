@@ -63,6 +63,7 @@ class MainActivity : Activity() {
     private lateinit var moodDescription: TextView
     private lateinit var folderPicker: Spinner
     private lateinit var folderContents: TextView
+    private lateinit var folderFileList: LinearLayout
     private var libraryFolders: MutableList<String> = mutableListOf()
     private var selectedLibraryFolder: String = "Fotos"
     private val importFileRequest = 7412
@@ -225,12 +226,15 @@ class MainActivity : Activity() {
         folderPicker = Spinner(this)
         libraryCard.addView(folderPicker, fullWidthWithTop())
         libraryCard.addView(actionButton("＋ Criar pasta", Color.rgb(48, 59, 88)) { showCreateFolderDialog() }, fullWidthWithTop())
-        libraryCard.addView(actionButton("＋ Importar foto ou arquivo", accent) { openImportPicker() }, fullWidthWithTop())
+        libraryCard.addView(actionButton("＋ Adicionar fotos à Ayla", accent) { openPhotoPicker() }, fullWidthWithTop())
+        libraryCard.addView(actionButton("＋ Importar outros arquivos", Color.rgb(48, 59, 88)) { openImportPicker() }, fullWidthWithTop())
         folderContents = label("Carregando pastas…", 13, white, false).apply {
             setPadding(dp(14), dp(14), dp(14), dp(14))
             background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
         }
         libraryCard.addView(folderContents, fullWidthWithTop())
+        folderFileList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        libraryCard.addView(folderFileList, fullWidthWithTop())
         content.addView(libraryCard, fullWidthWithTop())
         content.addView(label("ENTEREX • AYLA PERSONAL SPACE\nAs emoções são estados escolhidos/configurados, não sentimentos reais da IA.", 11, muted, false).apply {
             gravity = Gravity.CENTER
@@ -310,11 +314,38 @@ class MainActivity : Activity() {
         if (!folder.exists()) folder.mkdirs()
         val files = folder.listFiles()?.filter { it.isFile }?.sortedByDescending { it.lastModified() } ?: emptyList()
         folderContents.text = if (files.isEmpty()) {
-            "📁  $selectedLibraryFolder\n\nEsta pasta está vazia. Usa “Importar foto ou arquivo” para adicionar conteúdo."
+            "📁  \${selectedLibraryFolder}\n\nEsta pasta está vazia. Usa “Adicionar fotos à Ayla” para colocar imagens aqui."
         } else {
-            "📁  $selectedLibraryFolder  ·  ${files.size} arquivo(s)\n\n" + files.joinToString("\n") { file ->
+            "📁  \${selectedLibraryFolder}  ·  \${files.size} arquivo(s)\nOs itens abaixo podem ser removidos individualmente."
+        }
+        if (::folderFileList.isInitialized) {
+            folderFileList.removeAllViews()
+            files.forEach { file ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(10), dp(6), dp(6), dp(6))
+                    background = roundedSolid(Color.rgb(30, 37, 57), dp(12))
+                }
                 val kb = (file.length() / 1024).coerceAtLeast(1)
-                "• ${file.name}  ·  ${kb} KB"
+                val name = label("\${file.name}\n\${kb} KB", 12, Color.rgb(244, 246, 255), false)
+                row.addView(name, LinearLayout.LayoutParams(0, -2, 1f))
+                val remove = actionButton("Remover", Color.rgb(126, 47, 70)) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Remover arquivo?")
+                        .setMessage("Ayla vai perder acesso a este arquivo da biblioteca. Isso não apaga uma cópia que exista fora do app.\n\n\${file.name}")
+                        .setNegativeButton("Cancelar", null)
+                        .setPositiveButton("Remover") { _, _ ->
+                            if (file.exists() && file.delete()) {
+                                refreshFolderContents()
+                                Toast.makeText(this, "Arquivo removido da biblioteca.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this, "Não consegui remover esse arquivo.", Toast.LENGTH_LONG).show()
+                            }
+                        }.show()
+                }
+                row.addView(remove, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+                folderFileList.addView(row, fullWidthWithTop())
             }
         }
     }
@@ -340,10 +371,20 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    private fun openPhotoPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+        startActivityForResult(intent, importFileRequest)
+    }
+
     private fun openImportPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
             putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "application/pdf", "text/plain", "audio/*", "video/*"))
         }
         startActivityForResult(intent, importFileRequest)
@@ -352,31 +393,43 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API, retained for compatibility with Android 10")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != importFileRequest || resultCode != RESULT_OK) return
-        val uri: Uri = data?.data ?: return
-        val displayName = queryDisplayName(uri) ?: "arquivo_${System.currentTimeMillis()}"
+        if (requestCode != importFileRequest || resultCode != RESULT_OK || data == null) return
+        val uris = mutableListOf<Uri>()
+        val clips = data.clipData
+        if (clips != null) {
+            for (i in 0 until clips.itemCount) uris.add(clips.getItemAt(i).uri)
+        } else data.data?.let { uris.add(it) }
+        if (uris.isEmpty()) return
+        val destinationFolderName = safeFolderName(selectedLibraryFolder)
         Thread {
-            try {
-                val folder = java.io.File(java.io.File(filesDir, "AylaLibrary"), safeFolderName(selectedLibraryFolder))
-                folder.mkdirs()
-                val cleanName = displayName.map { ch -> if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|') '_' else ch }.joinToString("").take(100)
-                var target = java.io.File(folder, cleanName)
-                if (target.exists()) {
-                    val dot = cleanName.lastIndexOf('.')
-                    val base = if (dot > 0) cleanName.substring(0, dot) else cleanName
-                    val ext = if (dot > 0) cleanName.substring(dot) else ""
-                    target = java.io.File(folder, "${base}_${System.currentTimeMillis()}${ext}")
+            var imported = 0
+            var failed = 0
+            uris.forEach { uri ->
+                try {
+                    val folder = java.io.File(java.io.File(filesDir, "AylaLibrary"), destinationFolderName)
+                    folder.mkdirs()
+                    val displayName = queryDisplayName(uri) ?: "arquivo_\${System.currentTimeMillis()}"
+                    val cleanName = displayName.map { ch -> if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|') '_' else ch }.joinToString("").take(100)
+                    var target = java.io.File(folder, cleanName)
+                    if (target.exists()) {
+                        val dot = cleanName.lastIndexOf('.')
+                        val base = if (dot > 0) cleanName.substring(0, dot) else cleanName
+                        val ext = if (dot > 0) cleanName.substring(dot) else ""
+                        target = java.io.File(folder, "\${base}_\${System.currentTimeMillis()}\${ext}")
+                    }
+                    contentResolver.openInputStream(uri).use { input ->
+                        if (input == null) throw IllegalStateException("Não consegui abrir esse arquivo.")
+                        target.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    imported++
+                } catch (_: Exception) {
+                    failed++
                 }
-                contentResolver.openInputStream(uri).use { input ->
-                    if (input == null) throw IllegalStateException("Não consegui abrir esse arquivo.")
-                    target.outputStream().use { output -> input.copyTo(output) }
-                }
-                runOnUiThread {
-                    refreshFolderContents()
-                    Toast.makeText(this, "Arquivo salvo em $selectedLibraryFolder.", Toast.LENGTH_LONG).show()
-                }
-            } catch (error: Exception) {
-                runOnUiThread { Toast.makeText(this, "Não consegui importar: ${error.localizedMessage ?: "erro"}", Toast.LENGTH_LONG).show() }
+            }
+            runOnUiThread {
+                refreshFolderContents()
+                val message = if (failed == 0) "\${imported} arquivo(s) salvo(s) em \${destinationFolderName}." else "\${imported} salvo(s), \${failed} não puderam ser importados."
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
         }.start()
     }
