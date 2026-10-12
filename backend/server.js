@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 
 const PORT = Number(process.env.PORT || 8080);
-const API_KEY = process.env.AI_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || "";
+const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].filter(Boolean);
+const API_KEY = KEY_CANDIDATES.find(key => key.startsWith("sk-or-v1-")) || KEY_CANDIDATES[0] || "";
 const PROVIDER = (process.env.AI_PROVIDER || (API_KEY.startsWith("sk-or-v1-") ? "openrouter" : "gemini")).toLowerCase();
 const MODEL = process.env.AI_MODEL || (PROVIDER === "openrouter" ? "openai/gpt-4o-mini" : process.env.GEMINI_MODEL || "gemini-2.5-flash-lite");
 const localProfiles = new Map();
@@ -68,7 +69,6 @@ const server = createServer(async (req, res) => {
     return send(res, 200, {
       ok: true,
       service: "influencer-ia-backend",
-      provider: "Google Gemini",
       model: MODEL,
       configured: Boolean(API_KEY),
       provider: PROVIDER,
