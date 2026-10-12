@@ -2,6 +2,8 @@ package com.enterex.influenceria
 
 import android.app.Activity
 import android.content.ComponentName
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.os.Bundle
@@ -17,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -106,6 +109,17 @@ class MainActivity : Activity() {
         }
         content.addView(permissionButton, fullWidthWithTop())
 
+        val accessibilityButton = Button(this).apply {
+            text = "Configurar envio assistido (acessibilidade)"
+            isAllCaps = false
+            setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        }
+        content.addView(accessibilityButton, fullWidthWithTop())
+        content.addView(label(
+            "Para apps sem botão de resposta rápida, o envio assistido exige ativar manualmente o serviço Influencer IA nas configurações de Acessibilidade. Ele só tenta enviar com o Instagram Lite aberto na conversa correspondente; confira sempre o resultado.",
+            12, muted, false
+        ).apply { setPadding(dp(4), dp(6), dp(4), dp(4)) }, matchWrap())
+
         val appCard = card(panel)
         appCard.addView(label("APLICATIVO MONITORADO", 11, muted, true), matchWrap())
         appCard.addView(label("Selecione um app instalado. O Influencer IA vai ignorar as notificações dos outros aplicativos.", 13, white, false)
@@ -161,7 +175,24 @@ class MainActivity : Activity() {
         previewCard.addView(timeText, matchWrap())
         autoReplyStatusText = label("Ayla ainda não tentou responder nenhuma notificação.", 12, muted, false)
         autoReplyStatusText.setPadding(0, dp(8), 0, 0)
+        autoReplyStatusText.setTextIsSelectable(true)
         previewCard.addView(autoReplyStatusText, matchWrap())
+        val copyReplyButton = Button(this).apply {
+            text = "Copiar última resposta gerada"
+            isAllCaps = false
+            setOnClickListener {
+                val draft = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .getString("last_auto_reply_draft", "").orEmpty()
+                if (draft.isBlank()) {
+                    Toast.makeText(this@MainActivity, "Ainda não existe uma resposta gerada.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Resposta da Ayla", draft))
+                    Toast.makeText(this@MainActivity, "Resposta copiada. Cole na conversa do Instagram Lite.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        previewCard.addView(copyReplyButton, fullWidthWithTop())
         content.addView(previewCard, fullWidthWithTop())
 
         val chatCard = card(panel)
