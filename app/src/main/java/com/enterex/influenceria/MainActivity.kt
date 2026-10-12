@@ -274,6 +274,7 @@ class MainActivity : Activity() {
         if (!::moodModeButton.isInitialized) return
         val automatic = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean("ayla_mood_auto", true)
         moodModeButton.text = if (automatic) "Humor automático: ATIVADO" else "Humor automático: DESATIVADO · modo manual"
+        if (::moodPicker.isInitialized) moodPicker.isEnabled = !automatic
     }
 
     private fun applyMoodFromText(text: String) {
