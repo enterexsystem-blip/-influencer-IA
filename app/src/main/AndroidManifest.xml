@@ -9,7 +9,7 @@
     </queries>
     <application
         android:allowBackup="false"
-        android:label="Influencer IA"
+        android:label="Enterex • Ayla"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true">
@@ -20,7 +20,7 @@
         </activity>
         <service
             android:name=".NotificationReaderService"
-            android:label="Influencer IA — leitura de notificações"
+            android:label="Enterex Ayla — notificações"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -30,7 +30,7 @@
         </service>
         <service
             android:name=".InstagramLiteAccessibilityService"
-            android:label="Influencer IA — envio assistido no Instagram Lite"
+            android:label="Enterex Ayla — envio assistido"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>
