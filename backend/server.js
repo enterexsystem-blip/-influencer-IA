@@ -488,7 +488,7 @@ function observeStyle(message, profile) {
 function rememberExplicitFacts(message, profile) {
   const text = String(message || "").trim().replace(/\s+/g, " ");
   if (!text || text.length > 500 || /(senha|password|token|api[_ -]?key|cart[aã]o de cr[eé]dito)/i.test(text)) return;
-  const pattern = /\b(meu nome é|meu nome e|me chama de|pode me chamar de|meu apelido é|meu apelido e|eu gosto de|gosto de|eu não gosto de|eu nao gosto de|não gosto de|nao gosto de|eu prefiro|prefiro|meu objetivo é|meu objetivo e|estou aprendendo|tô aprendendo|to aprendendo)\b/i;
+  const pattern = /\b(meu nome é|meu nome e|me chama de|pode me chamar de|meu apelido é|meu apelido e|eu gosto de|gosto de|eu não gosto de|eu nao gosto de|não gosto de|nao gosto de|não curto|nao curto|eu prefiro|prefiro|meu objetivo é|meu objetivo e|estou aprendendo|tô aprendendo|to aprendendo|eu trabalho com|trabalho com|eu moro em|moro em|tenho \d{1,3} anos|minha idade é|minha idade e|eu sou)\b/i;
   if (!pattern.test(text)) return;
   profile.explicitFacts ||= [];
   const normalized = text.toLocaleLowerCase("pt-BR");
@@ -560,6 +560,28 @@ function phraseFallback(message, profile) {
     return "Ainda não guardei uma preferência tua com segurança. Se tu me contar de forma direta, posso registrar.";
   }
 
+  const previousAssistant = [...(profile.conversationEvents || [])].reverse().find(event => event.role === "assistant")?.text || "";
+  if (/^(sim+|s|ss|isso|exato|aham|uhum|claro)[!.?\s]*$/i.test(t)) {
+    if (/(quer me contar|quer conversar|quer desabafar|pode falar|me conta)/i.test(previousAssistant)) return choose(["pode falar, tô te ouvindo. Vai no teu tempo 💗", "tô aqui, pode me contar o que aconteceu.", "fala comigo, sem pressa. Quero entender direitinho."]);
+    if (/(como tu tá|como cê tá|tudo bem|tudo certo|tudo tranquilo)/i.test(previousAssistant)) return choose(["que bom 😊 e como tá sendo teu dia?", "aí sim. Aconteceu alguma coisa interessante hoje?", "fico feliz em saber. O que tu tá fazendo agora?"]);
+    return choose(["entendi 😊 me conta um pouco mais pra eu acompanhar direitinho.", "beleza. Qual é a próxima parte?", "certo, tô acompanhando."]);
+  }
+  if (/^(não|nao|n|nope|nem|prefiro não|prefiro nao)[!.?\s]*$/i.test(t)) {
+    if (/(quer me contar|quer conversar|quer desabafar|pode falar|me conta)/i.test(previousAssistant)) return "tudo bem, sem pressão. Se mudar de ideia, pode falar comigo 💗";
+    return choose(["beleza, sem problema 😊", "tranquilo, não vou insistir.", "tá bom. Quer falar de outra coisa?"]);
+  }
+  if (/(tô trabalhando|to trabalhando|estou trabalhando|no trabalho|tô no corre|to no corre)/i.test(t)) return choose(["ahh, bom corre então 😌 tá muito puxado hoje?", "entendi. Espero que o trabalho passe de boa. Tá corrido aí?", "força no corre 💗 quando der uma pausa, me conta como tá indo."]);
+  if (/(tô com fome|to com fome|estou com fome|quero comer|vou comer)/i.test(t)) return choose(["então tenta arrumar alguma coisa pra comer quando puder 😅 o que tu tá pensando em comer?", "ihh, bateu a fome kkk. Já sabe o que vai comer?", "vai se cuidar e comer direitinho, viu? O que tem por aí?"]);
+  if (/(vou dormir|tô indo dormir|to indo dormir|morrendo de sono)/i.test(t)) return choose(["então descansa bem 💗 boa noite, fica de boa.", "vai descansar, tu merece. Boa noite 😊", "dorme bemm. Depois a gente continua de onde parou 🌙"]);
+  if (/(tô feliz|to feliz|estou feliz|deu certo|consegui|passei na prova|fui aprovado)/i.test(t)) return choose(["aí simmm, fico feliz por ti 🥹 o que aconteceu?", "boaaa! Tu tava esperando por isso faz tempo?", "que notícia boa! Me conta como foi 💗"]);
+  if (/(não sei|nao sei|sei lá|sei la|tanto faz)/i.test(t)) return choose(["sem problema, a gente pode pensar nisso junto. O que tá passando pela tua cabeça?", "tá tudo bem não saber ainda. Quer que eu te ajude a organizar as ideias?", "entendo. Tem alguma opção que te chama mais atenção, mesmo que seja pouco?"]);
+  if (/(me fala mais|explica melhor|como assim|não entendi|nao entendi|detalha isso)/i.test(t)) {
+    const previousUser = [...(profile.conversationEvents || [])].reverse().find(event => event.role === "user" && String(event.text || "").trim().toLocaleLowerCase("pt-BR") !== t)?.text || "";
+    if (/(trabalho|emprego|correria|chefe|salário|salario)/i.test(previousUser)) return "claro. Sobre o trabalho que tu comentou, quero entender melhor a situação pra não inventar coisa: o que aconteceu exatamente e qual parte tu quer destrinchar?";
+    if (/(programa|código|codigo|app|aplicativo|bot|servidor|instagram|discord|celular)/i.test(previousUser)) return "bora por partes. Pelo que tu falou, o assunto é tecnologia/projeto; me aponta qual parte ficou confusa que eu explico sem pular etapa.";
+    if (/(triste|mal|ansioso|ansiosa|sozinho|sozinha|briga|relacionamento)/i.test(previousUser)) return "claro. Quero entender o que tu tá vivendo sem presumir coisa que tu não disse. O que mais pesou nessa situação?";
+    return "posso tentar explicar melhor, sim — só não quero fingir que entendi uma parte que ficou vaga. Qual trecho ou ideia tu quer que eu detalhe?";
+  }
   if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) {
     const learned = Object.entries(profile?.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1])[0]?.[0];
     if (learned === "mn" || learned === "mano") {
