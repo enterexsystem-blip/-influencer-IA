@@ -88,7 +88,7 @@ const server = createServer(async (req, res) => {
     const body = await readJson(req);
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const relationshipLevel = Number.isInteger(body.relationshipLevel) ? Math.max(0, Math.min(100, body.relationshipLevel)) : 0;
-    const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\\-]/g, "").slice(0, 180) : "";
+    const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
     if (!userId) return send(res, 400, { error: "Identificador de usuário ausente." });
     const profile = await loadProfile(userId);
     observeStyle(message, profile);
@@ -101,7 +101,7 @@ const server = createServer(async (req, res) => {
 
     let reply = "";
     if (!API_KEY) {
-      reply = phraseFallback(message);
+      reply = phraseFallback(message, profile);
       return send(res, 200, { reply, provider: "local-phrases", model: null, learned: true, memory: learnedStyle });
     }
     let upstream;
@@ -111,8 +111,8 @@ const server = createServer(async (req, res) => {
         method: "POST",
         headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Influencer IA" },
         body: JSON.stringify({ model: MODEL, messages: [
-          { role: "system", content: `${persona}\\n\\nESTILO APRENDIDO:\\n${learnedStyle}` },
-          { role: "user", content: `Nível de intimidade: ${relationshipLevel}/100.\\nMensagem recebida:\\n${message}` }
+          { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` },
+          { role: "user", content: `Nível de intimidade: ${relationshipLevel}/100.\nMensagem recebida:\n${message}` }
         ], temperature: 0.85, max_tokens: 350 }),
         signal: AbortSignal.timeout(25_000)
       });
@@ -131,8 +131,8 @@ const server = createServer(async (req, res) => {
           method: "POST",
           headers: { "content-type": "application/json", "x-goog-api-key": API_KEY },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: `${persona}\\n\\nESTILO APRENDIDO:\\n${learnedStyle}` }] },
-            contents: [{ role: "user", parts: [{ text: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\\nMensagem recebida:\\n${message}` }] }],
+            systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` }] },
+            contents: [{ role: "user", parts: [{ text: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nMensagem recebida:\n${message}` }] }],
             generationConfig: { temperature: 0.85, maxOutputTokens: 350 }
           }),
           signal: AbortSignal.timeout(25_000)
@@ -186,7 +186,7 @@ function observeStyle(message, profile) {
   profile.samples = Math.min(10000, (profile.samples || 0) + 1);
   if (/[😂🤣😭💀😔🥹❤️🔥🤡]/u.test(message)) profile.emojiCount = (profile.emojiCount || 0) + 1;
   if (/(kkkk+|rsrs+|haha+)/i.test(message)) profile.laughCount = (profile.laughCount || 0) + 1;
-  if (/(^|\\s)(vc|vcs|tbm|pq|q|mn|slk|tlgd|pprt)(\\s|$)/i.test(message)) profile.shortFormCount = (profile.shortFormCount || 0) + 1;
+  if (/(^|\s)(vc|vcs|tbm|pq|q|mn|slk|tlgd|pprt)(\s|$)/i.test(message)) profile.shortFormCount = (profile.shortFormCount || 0) + 1;
   profile.updatedAt = new Date().toISOString();
 }
 function profileSummary(profile) {
@@ -197,13 +197,13 @@ function profileSummary(profile) {
   if ((profile.emojiCount || 0) >= 2) style.push("usa emojis");
   return `Mensagens observadas: ${profile.samples || 0}. Gírias recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Use essas observações com moderação.`;
 }
-function phraseFallback(message) {
+function phraseFallback(message, profile) {
   const t = message.toLocaleLowerCase("pt-BR");
-  if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\\s]*$/i.test(t)) return "eae kkkkk, tudo bem? como tu tá?";
+  if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) return "eae kkkkk, tudo bem? como tu tá?";
   if (/(kkkk+|rsrs+|hahaha+)/i.test(t)) return "KKKKKK qual foi? 😂";
   if (/(tô triste|to triste|mal hoje|dia ruim|tô mal|to mal)/i.test(t)) return "poxa, sinto muito. Quer me contar o que rolou?";
   if (/(obrigad[oa]|valeu|tmj)/i.test(t)) return "imagina kkk, tamo junto 🤝";
-  if (/(tudo bem\\??|suave\\??|blz\\??)/i.test(t)) return "tudo tranquilo por aqui kkk, e contigo?";
+  if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return "tudo tranquilo por aqui kkk, e contigo?";
   return "entendi kkk. Me conta mais um pouco pra eu pegar o contexto.";
 }
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
