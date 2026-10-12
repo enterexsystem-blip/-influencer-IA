@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 const PORT = Number(process.env.PORT || 8080);
 const API_KEY = process.env.AI_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || "";
 const PROVIDER = (process.env.AI_PROVIDER || (API_KEY.startsWith("sk-or-v1-") ? "openrouter" : "gemini")).toLowerCase();
-const MODEL = process.env.AI_MODEL || process.env.GEMINI_MODEL || (PROVIDER === "openrouter" ? "openai/gpt-4o-mini" : "gemini-2.5-flash-lite");
+const MODEL = process.env.AI_MODEL || (PROVIDER === "openrouter" ? "openai/gpt-4o-mini" : process.env.GEMINI_MODEL || "gemini-2.5-flash-lite");
 const localProfiles = new Map();
 let pool = null;
 let dbReady = false;
