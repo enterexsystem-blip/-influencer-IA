@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlin.random.Random
 
 class InstagramLiteAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
@@ -61,6 +62,11 @@ class InstagramLiteAccessibilityService : AccessibilityService() {
             return
         }
 
+        prefs.edit()
+            .putString("last_auto_reply_status", "Ayla está digitando… preparando o envio no Instagram.")
+            .putLong("last_auto_reply_status_time", System.currentTimeMillis())
+            .apply()
+
         handler.postDelayed({
             try {
                 val currentPrefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
@@ -108,7 +114,7 @@ class InstagramLiteAccessibilityService : AccessibilityService() {
             } finally {
                 attemptInProgress = false
             }
-        }, 550)
+        }, Random.nextLong(1400, 2400))
     }
 
     private fun isMatchingConversation(root: AccessibilityNodeInfo, expectedTitle: String): Boolean {
