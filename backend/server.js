@@ -228,13 +228,17 @@ const server = createServer(async (req, res) => {
     return send(res, 429, { error: "Muitas solicitações. Tente novamente em instantes." });
   }
 
+  let fallbackMessage = "";
+  let fallbackProfile = { slangCounts: {}, samples: 0 };
   try {
     const body = await readJson(req);
     const message = typeof body.message === "string" ? body.message.trim() : "";
+    fallbackMessage = message;
     const relationshipLevel = Number.isInteger(body.relationshipLevel) ? Math.max(0, Math.min(100, body.relationshipLevel)) : 0;
     const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
     if (!userId) return send(res, 400, { error: "Identificador de usuário ausente." });
     const profile = await loadProfile(userId);
+    fallbackProfile = profile;
     observeStyle(message, profile);
     await saveProfile(userId, profile);
     const learnedStyle = profileSummary(profile);
@@ -317,7 +321,16 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     if (error?.status) return send(res, error.status, { error: error.message });
     console.error("Falha ao processar solicitação:", error?.name || "Error");
-    return send(res, 502, { error: "Falha temporária ao consultar o provedor de IA." });
+    if (fallbackMessage) {
+      return send(res, 200, {
+        reply: phraseFallback(fallbackMessage, fallbackProfile),
+        provider: "local-phrases-fallback",
+        model: null,
+        fallback: true,
+        warning: "O provedor de IA ficou indisponível; foi usada uma resposta local."
+      });
+    }
+    return send(res, 502, { error: "Falha temporária ao processar a solicitação." });
   }
 });
 
