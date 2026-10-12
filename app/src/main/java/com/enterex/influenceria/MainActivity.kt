@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var previewText: TextView
     private lateinit var packageText: TextView
     private lateinit var timeText: TextView
+    private lateinit var autoReplyStatusText: TextView
     private lateinit var messageInput: EditText
     private lateinit var replyText: TextView
     private lateinit var sendButton: Button
@@ -158,6 +159,9 @@ class MainActivity : Activity() {
         previewCard.addView(previewText, matchWrap())
         timeText = label("", 12, muted, false)
         previewCard.addView(timeText, matchWrap())
+        autoReplyStatusText = label("Ayla ainda não tentou responder nenhuma notificação.", 12, muted, false)
+        autoReplyStatusText.setPadding(0, dp(8), 0, 0)
+        previewCard.addView(autoReplyStatusText, matchWrap())
         content.addView(previewCard, fullWidthWithTop())
 
         val chatCard = card(panel)
@@ -359,6 +363,7 @@ class MainActivity : Activity() {
         timeText.text = if (timestamp > 0L) {
             "Recebida: " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp))
         } else ""
+        autoReplyStatusText.text = prefs.getString("last_auto_reply_status", "Ayla ainda não tentou responder nenhuma notificação.").orEmpty()
         updateAutoReplyButton()
     }
 
