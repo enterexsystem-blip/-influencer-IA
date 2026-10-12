@@ -181,8 +181,13 @@ async function saveProfile(userId, profile) {
 }
 function observeStyle(message, profile) {
   const tokens = message.toLocaleLowerCase("pt-BR").match(/[a-záàâãéêíóôõúç0-9]{2,}/giu) || [];
+  const stopwords = new Set(["para","como","essa","esse","isso","aqui","ali","porque","quando","onde","mais","muito","muita","pouco","pouca","tudo","nada","cada","eles","elas","você","vocês","ele","ela","uma","uns","umas","dos","das","que","com","sem","por","pra","pro","sobre","entre","estou","está","estao","estão","tenho","tem","foi","ser","ter","vai","vou","não","sim","mas","tipo","também","ainda","depois","antes","hoje","ontem","agora","então","meu","minha","seu","sua","isso","essa","esse","aquela","aquele","aquelas","aqueles"]);
   profile.slangCounts ||= {};
-  for (const token of tokens) if (slangDictionary[token]) profile.slangCounts[token] = Math.min(999, (profile.slangCounts[token] || 0) + 1);
+  profile.wordCounts ||= {};
+  for (const token of tokens) {
+    if (slangDictionary[token]) profile.slangCounts[token] = Math.min(999, (profile.slangCounts[token] || 0) + 1);
+    if (token.length >= 3 && !stopwords.has(token)) profile.wordCounts[token] = Math.min(999, (profile.wordCounts[token] || 0) + 1);
+  }
   profile.samples = Math.min(10000, (profile.samples || 0) + 1);
   if (/[😂🤣😭💀😔🥹❤️🔥🤡]/u.test(message)) profile.emojiCount = (profile.emojiCount || 0) + 1;
   if (/(kkkk+|rsrs+|haha+)/i.test(message)) profile.laughCount = (profile.laughCount || 0) + 1;
@@ -190,12 +195,13 @@ function observeStyle(message, profile) {
   profile.updatedAt = new Date().toISOString();
 }
 function profileSummary(profile) {
-  const slang = Object.entries(profile.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1]).slice(0, 12).map(([word,n]) => `${word} (${slangDictionary[word]}, ${n}x)`);
+  const slang = Object.entries(profile.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1]).slice(0, 10).map(([word,n]) => `${word} (${slangDictionary[word]}, ${n}x)`);
+  const repeatedWords = Object.entries(profile.wordCounts || {}).filter(([word, n]) => n >= 3 && !slangDictionary[word]).sort((a,b) => b[1]-a[1]).slice(0, 8).map(([word,n]) => `${word} (${n}x)`);
   const style = [];
   if ((profile.shortFormCount || 0) >= 2) style.push("abrevia palavras");
   if ((profile.laughCount || 0) >= 2) style.push("usa risadas por texto");
   if ((profile.emojiCount || 0) >= 2) style.push("usa emojis");
-  return `Mensagens observadas: ${profile.samples || 0}. Gírias recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Use essas observações com moderação.`;
+  return `Mensagens observadas: ${profile.samples || 0}. Gírias conhecidas recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Palavras/expressões que se repetem (o significado ainda depende do contexto): ${repeatedWords.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Use essas observações com moderação.`;
 }
 function phraseFallback(message, profile) {
   const t = message.toLocaleLowerCase("pt-BR");
