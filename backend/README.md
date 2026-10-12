@@ -10,7 +10,7 @@ Backend do aplicativo Android. O endpoint `POST /chat` recebe mensagens do chat 
   - o mesmo campo pode conter uma chave OpenRouter iniciada por `sk-or-v1-`. O backend identifica esse formato e seleciona OpenRouter.
   - Opcionalmente, use `AI_API_KEY` ou `OPENROUTER_API_KEY`.
 - `GEMINI_MODEL` é opcional; padrão Gemini: `gemini-2.5-flash-lite`.
-- `AI_MODEL` é opcional; padrão OpenRouter: `openai/gpt-4o-mini`.
+- `AI_MODEL` é opcional; padrão OpenRouter: `openrouter/free`, que encaminha para um modelo gratuito disponível. A disponibilidade e os limites gratuitos podem variar.
 - `DATABASE_URL` liga a memória persistente PostgreSQL. Sem ela, a memória fica apenas na RAM e some quando o processo reinicia.
 - `PORT` é fornecida pelo host; localmente o padrão é `8080`.
 
