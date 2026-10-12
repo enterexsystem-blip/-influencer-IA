@@ -15,6 +15,12 @@ import kotlin.random.Random
 class NotificationReaderService : NotificationListenerService() {
     companion object {
         const val AUTO_REPLY_ENABLED = "auto_reply_enabled"
+        const val PENDING_REPLY = "pending_accessibility_reply"
+        const val PENDING_REPLY_PACKAGE = "pending_reply_package"
+        const val PENDING_REPLY_TITLE = "pending_reply_title"
+        const val PENDING_REPLY_TEXT = "pending_reply_text"
+        const val PENDING_REPLY_MESSAGE = "pending_reply_original_message"
+        const val PENDING_REPLY_TIME = "pending_reply_time"
         private const val BACKEND_URL = "https://influencer-ia-backend.onrender.com"
         private const val CREATOR_HANDLE = "salem.logic"
         private const val DEFAULT_FRIENDSHIP = 65
@@ -156,8 +162,31 @@ class NotificationReaderService : NotificationListenerService() {
                     prefs.edit().putString("last_auto_reply_draft", reply).apply()
                     setReplyStatus(prefs, if (creator) "Resposta enviada para Salem." else "Resposta enviada pela notificação.")
                 } else {
-                    prefs.edit().putString("last_auto_reply_draft", reply).apply()
-                    setReplyStatus(prefs, "O Lite não ofereceu resposta rápida. Rascunho gerado (copie no app): $reply")
+                    // Fallback assistido: preparar a resposta e abrir a conversa da notificação.
+                    // O envio automático só será tentado se o usuário habilitar o serviço de acessibilidade.
+                    prefs.edit()
+                        .putString("last_auto_reply_draft", reply)
+                        .putBoolean(PENDING_REPLY, true)
+                        .putString(PENDING_REPLY_PACKAGE, sbn.packageName)
+                        .putString(PENDING_REPLY_TITLE, title)
+                        .putString(PENDING_REPLY_TEXT, reply)
+                        .putString(PENDING_REPLY_MESSAGE, text)
+                        .putLong(PENDING_REPLY_TIME, System.currentTimeMillis())
+                        .apply()
+                    val openedConversation = try {
+                        sbn.notification.contentIntent?.send(this, 0, Intent())
+                        sbn.notification.contentIntent != null
+                    } catch (_: Exception) {
+                        false
+                    }
+                    setReplyStatus(
+                        prefs,
+                        if (openedConversation) {
+                            "O Lite não oferece resposta rápida. Resposta preparada e conversa aberta; habilite o serviço de acessibilidade para tentar enviar com segurança."
+                        } else {
+                            "O Lite não oferece resposta rápida. Rascunho salvo no app: $reply"
+                        }
+                    )
                 }
 
                 if (!creator) {
