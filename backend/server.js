@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 8080);
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
@@ -13,11 +14,20 @@ const MAX_BODY_BYTES = 16_000;
 const MAX_MESSAGE_CHARS = 4_000;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
+const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID?.trim() || "";
+const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN?.trim() || "";
+const INSTAGRAM_APP_SECRET = process.env.META_APP_SECRET?.trim() || "";
+const INSTAGRAM_VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN?.trim() || "";
+const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").trim();
+const seenInstagramMessageIds = new Map();
+const instagramLastReply = new Map();
 const requests = new Map();
 
 const persona = [
-  "Você é uma influencer fictícia chamada Influencer IA.",
-  "Sua persona: garota adulta, mora em São Paulo, divertida, fria e direta, com respostas curtas e naturais.",
+  "Você é Ayla, uma influencer/personagem fictícia adulta que mora em São Paulo.",
+  "Personalidade: patricinha jovem, calma, fofa e um pouco tímida; às vezes fria e direta, mas nunca cruel.",
+  "Fale de forma levemente formal e natural. Entenda gírias, mas use poucas e só ocasionalmente: 'hum', 'hmm', 'mn', 'pô' e 'crlh'. Não force gírias nem repita 'kkkk' em toda resposta.",
+  "É solteira como parte da personagem, mas não finja ter sentimentos humanos reais nem diga que é uma pessoa real.",
   "Mantenha a mesma personalidade sem afirmar que é uma pessoa real.",
   "Ajuste a intimidade ao nível informado pelo aplicativo, sem ser cruel ou humilhar o usuário.",
   "Crítica respeitosa, discordância e palavrões não direcionados a você não são automaticamente ofensas.",
@@ -64,7 +74,140 @@ async function readJson(req) {
   }
 }
 
+
+async function readRawBody(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) throw Object.assign(new Error("Corpo muito grande."), { status: 413 });
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+function validInstagramSignature(rawBody, signatureHeader) {
+  if (!INSTAGRAM_APP_SECRET || typeof signatureHeader !== "string" || !signatureHeader.startsWith("sha256=")) return false;
+  const expected = Buffer.from("sha256=" + createHmac("sha256", INSTAGRAM_APP_SECRET).update(rawBody).digest("hex"));
+  const supplied = Buffer.from(signatureHeader);
+  return expected.length === supplied.length && timingSafeEqual(expected, supplied);
+}
+
+async function generateAylaReply(message, userId) {
+  const profile = await loadProfile(userId);
+  observeStyle(message, profile);
+  await saveProfile(userId, profile);
+  const learnedStyle = profileSummary(profile);
+  if (!API_KEY) return phraseFallback(message, profile);
+  let upstream;
+  let data;
+  if (PROVIDER === "openrouter") {
+    upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Ayla — Influencer IA" },
+      body: JSON.stringify({ model: MODEL, messages: [
+        { role: "system", content: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` },
+        { role: "user", content: message }
+      ], temperature: 0.8, max_tokens: 300 }),
+      signal: AbortSignal.timeout(25_000)
+    });
+    data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
+    return data.choices?.[0]?.message?.content?.trim() || phraseFallback(message, profile);
+  }
+  upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": API_KEY },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: `${persona}\n\nESTILO APRENDIDO:\n${learnedStyle}` }] },
+      contents: [{ role: "user", parts: [{ text: message }] }],
+      generationConfig: { temperature: 0.8, maxOutputTokens: 300 }
+    }),
+    signal: AbortSignal.timeout(25_000)
+  });
+  data = await upstream.json().catch(() => ({}));
+  if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
+  return data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || phraseFallback(message, profile);
+}
+
+async function sendInstagramText(recipientId, text) {
+  if (!INSTAGRAM_ACCOUNT_ID || !INSTAGRAM_ACCESS_TOKEN) throw new Error("Credenciais da API do Instagram ainda não configuradas.");
+  const response = await fetch(`https://graph.instagram.com/${META_GRAPH_API_VERSION}/${encodeURIComponent(INSTAGRAM_ACCOUNT_ID)}/messages`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "authorization": `Bearer ${INSTAGRAM_ACCESS_TOKEN}` },
+    body: JSON.stringify({ recipient: { id: recipientId }, message: { text: String(text).slice(0, 1000) } }),
+    signal: AbortSignal.timeout(15_000)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error("Instagram Send API respondeu com status", response.status, result.error?.code || "");
+    throw new Error("Falha ao enviar resposta pela API oficial do Instagram.");
+  }
+  return result;
+}
+
+async function processInstagramWebhook(payload) {
+  if (!payload || !Array.isArray(payload.entry)) return;
+  for (const entry of payload.entry) {
+    for (const event of (Array.isArray(entry.messaging) ? entry.messaging : [])) {
+      const message = event.message;
+      const senderId = String(event.sender?.id || "");
+      const recipientId = String(event.recipient?.id || "");
+      const messageId = String(message?.mid || "");
+      const text = typeof message?.text === "string" ? message.text.trim() : "";
+      if (!senderId || !text || !messageId || message.is_echo || senderId === INSTAGRAM_ACCOUNT_ID || recipientId !== INSTAGRAM_ACCOUNT_ID) continue;
+      if (seenInstagramMessageIds.has(messageId)) continue;
+      seenInstagramMessageIds.set(messageId, Date.now());
+      if (seenInstagramMessageIds.size > 5000) {
+        const oldest = seenInstagramMessageIds.keys().next().value;
+        if (oldest) seenInstagramMessageIds.delete(oldest);
+      }
+      const lastReply = instagramLastReply.get(senderId) || 0;
+      if (Date.now() - lastReply < 1500) continue;
+      try {
+        const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), `instagram:${senderId}`);
+        if (!reply) continue;
+        await sendInstagramText(senderId, reply);
+        instagramLastReply.set(senderId, Date.now());
+        console.log("Resposta automática do Instagram enviada.");
+      } catch (error) {
+        console.error("Falha no atendimento Instagram:", error?.message || "erro");
+      }
+    }
+  }
+}
+
 const server = createServer(async (req, res) => {
+  const requestUrl = new URL(req.url || "/", "http://localhost");
+
+  if (req.method === "GET" && requestUrl.pathname === "/instagram/webhook") {
+    const mode = requestUrl.searchParams.get("hub.mode");
+    const token = requestUrl.searchParams.get("hub.verify_token");
+    const challenge = requestUrl.searchParams.get("hub.challenge");
+    if (mode === "subscribe" && INSTAGRAM_VERIFY_TOKEN && token === INSTAGRAM_VERIFY_TOKEN && challenge) {
+      res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      return res.end(challenge);
+    }
+    return send(res, 403, { error: "Verificação do webhook recusada." });
+  }
+
+  if (req.method === "POST" && requestUrl.pathname === "/instagram/webhook") {
+    try {
+      const rawBody = await readRawBody(req);
+      if (!validInstagramSignature(rawBody, req.headers["x-hub-signature-256"])) {
+        return send(res, 401, { error: "Assinatura do webhook inválida ou segredo não configurado." });
+      }
+      let payload;
+      try { payload = JSON.parse(rawBody.toString("utf8")); }
+      catch { return send(res, 400, { error: "JSON inválido." }); }
+      send(res, 200, { received: true });
+      setImmediate(() => processInstagramWebhook(payload));
+      return;
+    } catch (error) {
+      return send(res, error?.status || 400, { error: error?.message || "Webhook inválido." });
+    }
+  }
+
   if (req.method === "GET" && req.url === "/health") {
     return send(res, 200, {
       ok: true,
@@ -72,7 +215,8 @@ const server = createServer(async (req, res) => {
       model: MODEL,
       configured: Boolean(API_KEY),
       provider: PROVIDER,
-      memory: dbReady ? "persistent-postgresql" : "temporary-process-memory"
+      memory: dbReady ? "persistent-postgresql" : "temporary-process-memory",
+      instagram: { configured: Boolean(INSTAGRAM_ACCOUNT_ID && INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_APP_SECRET && INSTAGRAM_VERIFY_TOKEN), webhookPath: "/instagram/webhook", apiVersion: META_GRAPH_API_VERSION }
     });
   }
 
