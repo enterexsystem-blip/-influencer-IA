@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Influencer IA</string>
+    <string name="notification_access_description">Permite ao Influencer IA ler o texto disponível nas notificações, conforme autorizado pelo usuário.</string>
     <string name="accessibility_reply_description">Permite que a Ayla preencha e envie uma resposta preparada somente quando o Instagram Lite estiver aberto na conversa correspondente.</string>
 </resources>
