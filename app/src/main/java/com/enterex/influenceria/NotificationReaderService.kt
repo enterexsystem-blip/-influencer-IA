@@ -20,6 +20,7 @@ class NotificationReaderService : NotificationListenerService() {
         const val PENDING_REPLY_TITLE = "pending_accessibility_reply_title"
         const val PENDING_REPLY_PACKAGE = "pending_accessibility_reply_package"
         const val PENDING_REPLY_MESSAGE = "pending_accessibility_reply_message"
+        const val PENDING_REPLY_TIME = "pending_accessibility_reply_time"
         private const val BACKEND_URL = "https://influencer-ia-backend.onrender.com"
         private const val CREATOR_HANDLE = "kyodai.logic"
         private const val DEFAULT_FRIENDSHIP = 65
@@ -106,7 +107,7 @@ class NotificationReaderService : NotificationListenerService() {
         Thread {
             try {
                 val delayMs = if (creator) Random.nextLong(900, 2200) else {
-                    val baseDelay = 4_000L + ((100 - friendship) * 900L)
+                    val baseDelay = 2_000L + ((100 - friendship) * 150L)
                     Random.nextLong(baseDelay, baseDelay + 8_000L).coerceAtMost(120_000L)
                 }
                 Thread.sleep(delayMs)
@@ -162,6 +163,7 @@ class NotificationReaderService : NotificationListenerService() {
                         .putString(PENDING_REPLY_TITLE, title)
                         .putString(PENDING_REPLY_PACKAGE, sbn.packageName)
                         .putString(PENDING_REPLY_MESSAGE, text)
+                        .putLong(PENDING_REPLY_TIME, System.currentTimeMillis())
                         .putBoolean(PENDING_REPLY, true)
                         .apply()
                     setReplyStatus(prefs, "Resposta pronta para '$title'. Abra essa conversa no Instagram Lite; a Ayla só tentará enviar se reconhecer o chat.")
