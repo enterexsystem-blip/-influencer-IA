@@ -359,7 +359,7 @@ class MainActivity : Activity() {
             try {
                 val folder = java.io.File(java.io.File(filesDir, "AylaLibrary"), safeFolderName(selectedLibraryFolder))
                 folder.mkdirs()
-                val cleanName = displayName.replace(Regex("[/\\\\:*?\\"<>|]"), "_").take(100)
+                val cleanName = displayName.map { if (it in "/\\\\:*?\\"<>|") '_' else it }.joinToString("").take(100)
                 var target = java.io.File(folder, cleanName)
                 if (target.exists()) {
                     val dot = cleanName.lastIndexOf('.')
