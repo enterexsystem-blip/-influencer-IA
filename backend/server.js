@@ -98,7 +98,7 @@ async function generateAylaReply(message, userId) {
   observeStyle(message, profile);
   await saveProfile(userId, profile);
   const learnedStyle = profileSummary(profile);
-  if (!API_KEY) return phraseFallback(message, profile);
+  if (!API_KEY) return phraseFallbackAndSave(message, profile, userId);
   let upstream;
   let data;
   if (PROVIDER === "openrouter") {
@@ -113,7 +113,7 @@ async function generateAylaReply(message, userId) {
     });
     data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
-    return data.choices?.[0]?.message?.content?.trim() || phraseFallback(message, profile);
+    return data.choices?.[0]?.message?.content?.trim() || await phraseFallbackAndSave(message, profile, userId);
   }
   upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`, {
     method: "POST",
@@ -127,7 +127,7 @@ async function generateAylaReply(message, userId) {
   });
   data = await upstream.json().catch(() => ({}));
   if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
-  return data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || phraseFallback(message, profile);
+  return data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || await phraseFallbackAndSave(message, profile, userId);
 }
 
 async function sendInstagramText(recipientId, text) {
@@ -230,6 +230,7 @@ const server = createServer(async (req, res) => {
 
   let fallbackMessage = "";
   let fallbackProfile = { slangCounts: {}, samples: 0 };
+  let fallbackUserId = "";
   try {
     const body = await readJson(req);
     const message = typeof body.message === "string" ? body.message.trim() : "";
@@ -237,6 +238,7 @@ const server = createServer(async (req, res) => {
     const relationshipLevel = Number.isInteger(body.relationshipLevel) ? Math.max(0, Math.min(100, body.relationshipLevel)) : 0;
     const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
     if (!userId) return send(res, 400, { error: "Identificador de usuário ausente." });
+    fallbackUserId = userId;
     const profile = await loadProfile(userId);
     fallbackProfile = profile;
     observeStyle(message, profile);
@@ -249,7 +251,7 @@ const server = createServer(async (req, res) => {
 
     let reply = "";
     if (!API_KEY) {
-      reply = phraseFallback(message, profile);
+      reply = await phraseFallbackAndSave(message, profile, userId);
       return send(res, 200, { reply, provider: "local-phrases", model: null, learned: true, memory: learnedStyle });
     }
     let upstream;
@@ -267,7 +269,7 @@ const server = createServer(async (req, res) => {
       data = await upstream.json().catch(() => ({}));
       if (!upstream.ok) {
         console.error("OpenRouter respondeu com status", upstream.status);
-        const fallbackReply = phraseFallback(message, profile);
+        const fallbackReply = await phraseFallbackAndSave(message, profile, userId);
         return send(res, 200, {
           reply: fallbackReply,
           provider: "local-phrases-fallback",
@@ -323,7 +325,7 @@ const server = createServer(async (req, res) => {
     console.error("Falha ao processar solicitação:", error?.name || "Error");
     if (fallbackMessage) {
       return send(res, 200, {
-        reply: phraseFallback(fallbackMessage, fallbackProfile),
+        reply: await phraseFallbackAndSave(fallbackMessage, fallbackProfile, fallbackUserId),
         provider: "local-phrases-fallback",
         model: null,
         fallback: true,
@@ -375,9 +377,22 @@ function profileSummary(profile) {
   if ((profile.emojiCount || 0) >= 2) style.push("usa emojis");
   return `Mensagens observadas: ${profile.samples || 0}. Gírias conhecidas recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Palavras/expressões que se repetem (o significado ainda depende do contexto): ${repeatedWords.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Use essas observações com moderação.`;
 }
+async function phraseFallbackAndSave(message, profile, userId) {
+  const reply = phraseFallback(message, profile);
+  if (userId) await saveProfile(userId, profile);
+  return reply;
+}
+
 function phraseFallback(message, profile) {
   const t = message.toLocaleLowerCase("pt-BR").trim();
-  const choose = (options) => options[Math.floor(Math.random() * options.length)];
+  const choose = (options) => {
+    const recent = Array.isArray(profile.recentReplies) ? profile.recentReplies : [];
+    const fresh = options.filter(option => !recent.includes(option));
+    const pool = fresh.length ? fresh : options;
+    const selected = pool[Math.floor(Math.random() * pool.length)];
+    profile.recentReplies = [...recent, selected].slice(-30);
+    return selected;
+  };
 
   if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) {
     const learned = Object.entries(profile?.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1])[0]?.[0];
