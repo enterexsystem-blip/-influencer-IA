@@ -397,22 +397,22 @@ function phraseFallback(message, profile) {
   if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) {
     const learned = Object.entries(profile?.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1])[0]?.[0];
     if (learned === "mn" || learned === "mano") {
-      return choose(["eae, mano kkk, tudo certo?", "ooi, mn. Como cê tá?", "oii kkk, conta aí, tudo suave?", "eae! Como tá sendo teu dia?"]);
+      return choose(["eae, mano kkk, tudo certo?", "ooi, mn. Como cê tá?", "oii kkk, conta aí, tudo suave?", "eae! Como tá sendo teu dia?", "fala mn, sumido kkk, tudo bem?", "ooi, chegou de boa? 💗", "eae, qual foi a boa de hoje?", "oii, me conta como cê tá de verdade", "salvee mn, tranquilo por aí?", "opa, apareceu kkk. Como tu tá?", "oiee, como andam as coisas?", "eae, tudo na paz contigo?"]);
     }
     if (learned === "slk" || learned === "tlgd") {
-      return choose(["eae kkk, qual foi? suave?", "oii, tudo certo por aí?", "oiee, como cê tá?", "opa kkk, me conta as novidades"]);
+      return choose(["eae kkk, qual foi? suave?", "oii, tudo certo por aí?", "oiee, como cê tá?", "opa kkk, me conta as novidades", "salvee, como tá o corre?", "ooi, apareceu por aqui 😅 tudo bem?", "eae, conta as novidades", "oii, tá tudo tranquilo do teu lado?", "opa, como tá sendo teu dia?", "eae, chegou na paz?"]);
     }
-    return choose(["ooii, tudo bem? 💗", "oii kkk, como cê tá?", "oiee, tudo certinho por aí?", "ooi, que foi? conta aí", "oii :) como tá teu dia?", "eae! Tudo tranquilo contigo?"]);
+    return choose(["ooii, tudo bem? 💗", "oii kkk, como cê tá?", "oiee, tudo certinho por aí?", "ooi, que foi? conta aí", "oii :) como tá teu dia?", "eae! Tudo tranquilo contigo?", "oiee, que bom te ver por aqui 💗", "oii, como tá a vida?", "eae, tudo na paz?", "ooi, fala comigo, como cê tá?", "oii! Como foi teu dia até agora?", "salvee, tá tudo certo contigo?", "oiee, me atualiza das novidades", "opa, tudo suave por aí?", "oii, chegou bem? 😊", "eae! Como cê tá se sentindo hoje?", "ooi, qual foi a boa?", "oii, tava fazendo o quê?"]);
   }
-  if (/(kkkk+|rsrs+|hahaha+)/i.test(t)) return choose(["KKKKKKK paraa 😂", "kkkkkk tu é figura", "KKKKKK aí tu me quebra", "mds KKKKKK 😂"]);
+  if (/(kkkk+|rsrs+|hahaha+)/i.test(t)) return choose(["KKKKKKK paraa 😂", "kkkkkk tu é figura", "KKKKKK aí tu me quebra", "mds KKKKKK 😂", "não tankei KKKKKK", "ai mn KKKKKK 😭", "tu não existe KKKKK", "KKKKKK calma aí", "pprt KKKKKK", "eu tô rindo muito KKKK", "KKKKKK que isso véi", "para vei KKKKK"]);
   if (/(tô triste|to triste|mal hoje|dia ruim|tô mal|to mal|tô péssim[oa]|to pessím[oa])/i.test(t)) {
-    return choose(["poxa, sinto muito 🥺 quer me contar o que aconteceu?", "ahh, sinto muito que tu esteja assim. Quer conversar?", "puts… quer me falar o que rolou? Tô aqui pra te ouvir"]);
+    return choose(["poxa, sinto muito 🥺 quer me contar o que aconteceu?", "ahh, sinto muito que tu esteja assim. Quer conversar?", "puts… quer me falar o que rolou? Tô aqui pra te ouvir", "quer desabafar um pouco? Pode falar comigo", "imagino que esteja sendo pesado. O que aconteceu?", "poxa, queria que teu dia tivesse sido melhor 🥺", "tô te ouvindo, viu? Me conta no teu tempo", "sinto muito mesmo. Quer me explicar o que pegou?"]);
   }
-  if (/(obrigad[oa]|valeu|tmj)/i.test(t)) return choose(["imaginaaa 💗", "por nada kkk, tamo junto", "que isso, não precisa agradecer 😊"]);
-  if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return choose(["tudo sim, e contigo?", "tô de boa kkk, e tu?", "tudo tranquilo por aqui 😊 e por aí?"]);
-  if (/\b(tá fazendo o quê|ta fazendo o que|oq tá fazendo|oq ta fazendo|fazendo oq)\b/i.test(t)) return choose(["nada demais agora kkk, e tu?", "tô de boa por aqui. Tu tá fazendo o quê?", "só passando o tempo um pouquinho 😅 e tu?"]);
-  if (/\b(quem é você|quem e voce|quem é vc|quem e vc)\b/i.test(t)) return choose(["sou a Ayla 😊 e tu, como tá?", "eu sou a Ayla kkk, prazer 💗", "Ayla! hehe. E como posso te chamar?"]);
-  return choose(["hmm, entendi. Me conta mais 👀", "sério? E como foi isso?", "ahh tá kkk, continua, quero entender", "hmm, e o que aconteceu depois?", "entendi. Como tu se sentiu com isso?", "me explica melhor essa parte 😅"]);
+  if (/(obrigad[oa]|valeu|tmj)/i.test(t)) return choose(["imaginaaa 💗", "por nada kkk, tamo junto", "que isso, não precisa agradecer 😊", "disponhaaa, mn 💗", "nadaaa, fica bem", "magina kkk, tamo junto", "não precisa agradecer, viu? 😊", "por nadinhaa ✨"]);
+  if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return choose(["tudo sim, e contigo?", "tô de boa kkk, e tu?", "tudo tranquilo por aqui 😊 e por aí?", "tô bem simm, e tu, como tá?", "suave por aqui, graças a Deus. E tu?", "tudo certinho 😊 como cê tá?", "tô de boa, só na tranquilidade kkk. E aí?", "tudo na paz, e desse lado?"]);
+  if (/\b(tá fazendo o quê|ta fazendo o que|oq tá fazendo|oq ta fazendo|fazendo oq)\b/i.test(t)) return choose(["nada demais agora kkk, e tu?", "tô de boa por aqui. Tu tá fazendo o quê?", "só passando o tempo um pouquinho 😅 e tu?", "por enquanto nada de interessante kkk, e tu?", "só de boa aqui. Qual foi a tua?", "tô tranquila por aqui, e tu tá aprontando o quê?", "nada demais não, me conta de ti", "só descansando um pouco 😊 e tu?"]);
+  if (/\b(quem é você|quem e voce|quem é vc|quem e vc)\b/i.test(t)) return choose(["sou a Ayla 😊 e tu, como tá?", "eu sou a Ayla kkk, prazer 💗", "Ayla! hehe. E como posso te chamar?", "me chamo Ayla 💗 e tu?", "Ayla por aqui hehe, como posso te chamar?", "sou a Ayla, prazer em te conhecer 😊"]);
+  return choose(["hmm, entendi. Me conta mais 👀", "sério? E como foi isso?", "ahh tá kkk, continua, quero entender", "hmm, e o que aconteceu depois?", "entendi. Como tu se sentiu com isso?", "me explica melhor essa parte 😅", "eita, não sabia dessa. Continua", "tá, tô acompanhando. E depois?", "hmm, saquei mais ou menos, explica só essa parte", "caramba, e tu fez o quê?", "nossa, como assim? Me conta melhor", "ahh, agora entendi um pouco mais", "pô, isso parece interessante. Como começou?", "e tu ficou como com isso?", "certo kkk, quero entender teu ponto", "tá ligado, me dá mais contexto", "hmm, faz sentido. O que tu pensa disso?", "eita, essa parte eu não esperava 👀", "me conta o resto, fiquei curiosa", "pera, como foi que isso aconteceu?"]);
 }
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
 
