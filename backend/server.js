@@ -296,7 +296,7 @@ const server = createServer(async (req, res) => {
       data = await upstream.json().catch(() => ({}));
       if (!upstream.ok) {
         console.error("Gemini respondeu com status", upstream.status);
-        const fallbackReply = phraseFallback(message, profile);
+        const fallbackReply = await phraseFallbackAndSave(message, profile, userId);
         return send(res, 200, {
           reply: fallbackReply,
           provider: "local-phrases-fallback",
@@ -309,7 +309,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (!reply) {
-      const fallbackReply = phraseFallback(message, profile);
+      const fallbackReply = await phraseFallbackAndSave(message, profile, userId);
       return send(res, 200, {
         reply: fallbackReply,
         provider: "local-phrases-fallback",
