@@ -224,6 +224,11 @@ class NotificationReaderService : NotificationListenerService() {
                     connection.disconnect()
                 }
 
+                val normalizedReply = reply.trim().lowercase(java.util.Locale.ROOT)
+                if (normalizedReply in setOf("noop", "no-op", "no_op", "none", "null", "undefined", "skip", "silence", "[noop]")) {
+                    setReplyStatus(prefs, "A resposta veio vazia ou como comando interno; a Ayla não enviou essa mensagem. Tente novamente.")
+                    return@Thread
+                }
                 if (reply.isBlank()) {
                     setReplyStatus(prefs, "O servidor não devolveu uma resposta de texto.")
                     return@Thread
