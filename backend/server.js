@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 
 const PORT = Number(process.env.PORT || 8080);
-const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const API_KEY = process.env.OPENROUTER_API_KEY;
+const MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 const MAX_BODY_BYTES = 16_000;
 const MAX_MESSAGE_CHARS = 4_000;
 const WINDOW_MS = 60_000;
@@ -58,19 +58,16 @@ async function readJson(req) {
 
 const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") {
-    return send(res, 200, { ok: true, service: "influencer-ia-backend" });
+    return send(res, 200, { ok: true, service: "influencer-ia-backend", provider: "OpenRouter" });
   }
-
   if (req.method !== "POST" || req.url !== "/chat") {
     return send(res, 404, { error: "Rota não encontrada." });
   }
-
   if (rateLimited(req)) {
     return send(res, 429, { error: "Muitas solicitações. Tente novamente em instantes." });
   }
-
   if (!API_KEY) {
-    return send(res, 503, { error: "Backend ainda não configurado: falta GEMINI_API_KEY." });
+    return send(res, 503, { error: "Backend ainda não configurado: falta OPENROUTER_API_KEY." });
   }
 
   try {
@@ -84,47 +81,42 @@ const server = createServer(async (req, res) => {
       return send(res, 400, { error: "A mensagem deve ter entre 1 e 4000 caracteres." });
     }
 
-    const prompt = `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nMensagem recebida:\n${message}`;
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
-
-    const upstream = await fetch(endpoint, {
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-goog-api-key": API_KEY
+        "authorization": `Bearer ${API_KEY}`,
+        "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA",
+        "x-title": "Influencer IA"
       },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: persona }] },
-        contents: [{ role: "user", parts: [{ text: prompt }] },
+        model: MODEL,
+        messages: [
+          { role: "system", content: persona },
+          { role: "user", content: `Nível de intimidade com esta pessoa: ${relationshipLevel}/100.\nMensagem recebida:\n${message}` }
         ],
-        generationConfig: {
-          temperature: 0.85,
-          maxOutputTokens: 350
-        }
+        temperature: 0.85,
+        max_tokens: 350
       }),
       signal: AbortSignal.timeout(25_000)
     });
 
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      console.error("Gemini API respondeu com status", upstream.status);
+      console.error("OpenRouter respondeu com status", upstream.status);
       return send(res, upstream.status === 429 ? 429 : 502, {
         error: upstream.status === 429
-          ? "Limite gratuito da IA atingido. Tente mais tarde."
-          : "Não foi possível obter resposta da IA."
+          ? "Limite gratuito da IA atingido ou provedores ocupados. Tente mais tarde."
+          : "Não foi possível obter resposta da IA. Verifique a configuração da chave e o modelo."
       });
     }
 
-    const reply = data.candidates?.[0]?.content?.parts
-      ?.map(part => part.text || "")
-      .join("")
-      .trim();
-
-    if (!reply) {
+    const reply = data.choices?.[0]?.message?.content;
+    if (typeof reply !== "string" || !reply.trim()) {
       return send(res, 502, { error: "A IA não retornou uma resposta de texto." });
     }
 
-    return send(res, 200, { reply, model: MODEL });
+    return send(res, 200, { reply: reply.trim(), model: data.model || MODEL });
   } catch (error) {
     if (error?.status) return send(res, error.status, { error: error.message });
     console.error("Falha ao processar solicitação:", error?.name || "Error");
