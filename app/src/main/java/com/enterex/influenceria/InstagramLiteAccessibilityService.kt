@@ -23,6 +23,7 @@ class InstagramLiteAccessibilityService : AccessibilityService() {
                 .remove(NotificationReaderService.PENDING_REPLY_TITLE)
                 .remove(NotificationReaderService.PENDING_REPLY_PACKAGE)
                 .remove(NotificationReaderService.PENDING_REPLY_MESSAGE)
+                .remove(NotificationReaderService.PENDING_REPLY_TIME)
                 .putString("last_auto_reply_status", "Resposta pendente expirou por segurança. Envie uma nova mensagem para testar novamente.")
                 .apply()
             return
