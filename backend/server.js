@@ -376,18 +376,28 @@ function profileSummary(profile) {
   return `Mensagens observadas: ${profile.samples || 0}. Gírias conhecidas recorrentes: ${slang.join(", ") || "ainda aprendendo"}. Palavras/expressões que se repetem (o significado ainda depende do contexto): ${repeatedWords.join(", ") || "ainda aprendendo"}. Estilo: ${style.join(", ") || "ainda aprendendo"}. Use essas observações com moderação.`;
 }
 function phraseFallback(message, profile) {
-  const t = message.toLocaleLowerCase("pt-BR");
+  const t = message.toLocaleLowerCase("pt-BR").trim();
+  const choose = (options) => options[Math.floor(Math.random() * options.length)];
+
   if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) {
     const learned = Object.entries(profile?.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1])[0]?.[0];
-    if (learned === "mn" || learned === "mano") return "eae, mano kkkkk, tudo certo?";
-    if (learned === "slk" || learned === "tlgd") return "eae kkkkk, qual foi? suave?";
-    return "eae kkkkk, tudo bem? como tu tá?";
+    if (learned === "mn" || learned === "mano") {
+      return choose(["eae, mano kkk, tudo certo?", "ooi, mn. Como cê tá?", "oii kkk, conta aí, tudo suave?", "eae! Como tá sendo teu dia?"]);
+    }
+    if (learned === "slk" || learned === "tlgd") {
+      return choose(["eae kkk, qual foi? suave?", "oii, tudo certo por aí?", "oiee, como cê tá?", "opa kkk, me conta as novidades"]);
+    }
+    return choose(["ooii, tudo bem? 💗", "oii kkk, como cê tá?", "oiee, tudo certinho por aí?", "ooi, que foi? conta aí", "oii :) como tá teu dia?", "eae! Tudo tranquilo contigo?"]);
   }
-  if (/(kkkk+|rsrs+|hahaha+)/i.test(t)) return "KKKKKK qual foi? 😂";
-  if (/(tô triste|to triste|mal hoje|dia ruim|tô mal|to mal)/i.test(t)) return "poxa, sinto muito. Quer me contar o que rolou?";
-  if (/(obrigad[oa]|valeu|tmj)/i.test(t)) return "imagina kkk, tamo junto 🤝";
-  if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return "tudo tranquilo por aqui kkk, e contigo?";
-  return "entendi kkk. Me conta mais um pouco pra eu pegar o contexto.";
+  if (/(kkkk+|rsrs+|hahaha+)/i.test(t)) return choose(["KKKKKKK paraa 😂", "kkkkkk tu é figura", "KKKKKK aí tu me quebra", "mds KKKKKK 😂"]);
+  if (/(tô triste|to triste|mal hoje|dia ruim|tô mal|to mal|tô péssim[oa]|to pessím[oa])/i.test(t)) {
+    return choose(["poxa, sinto muito 🥺 quer me contar o que aconteceu?", "ahh, sinto muito que tu esteja assim. Quer conversar?", "puts… quer me falar o que rolou? Tô aqui pra te ouvir"]);
+  }
+  if (/(obrigad[oa]|valeu|tmj)/i.test(t)) return choose(["imaginaaa 💗", "por nada kkk, tamo junto", "que isso, não precisa agradecer 😊"]);
+  if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return choose(["tudo sim, e contigo?", "tô de boa kkk, e tu?", "tudo tranquilo por aqui 😊 e por aí?"]);
+  if (/\b(tá fazendo o quê|ta fazendo o que|oq tá fazendo|oq ta fazendo|fazendo oq)\b/i.test(t)) return choose(["nada demais agora kkk, e tu?", "tô de boa por aqui. Tu tá fazendo o quê?", "só passando o tempo um pouquinho 😅 e tu?"]);
+  if (/\b(quem é você|quem e voce|quem é vc|quem e vc)\b/i.test(t)) return choose(["sou a Ayla 😊 e tu, como tá?", "eu sou a Ayla kkk, prazer 💗", "Ayla! hehe. E como posso te chamar?"]);
+  return choose(["hmm, entendi. Me conta mais 👀", "sério? E como foi isso?", "ahh tá kkk, continua, quero entender", "hmm, e o que aconteceu depois?", "entendi. Como tu se sentiu com isso?", "me explica melhor essa parte 😅"]);
 }
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
 
