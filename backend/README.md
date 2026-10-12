@@ -43,3 +43,36 @@ A memória não guarda o texto completo das mensagens; guarda contagens limitada
 O `render.yaml` descreve um serviço web e um banco PostgreSQL para persistir perfis entre reinicializações. Se o banco ainda não existir no Render, sincronize o Blueprint e confira em `/health` que `memory` retorna `persistent-postgresql`. Se mostrar `temporary-process-memory`, a memória não está persistindo.
 
 Antes de uso público, adicione autenticação, limites compartilhados por usuário, proteção contra abuso e controles para apagar a memória. Respostas automáticas só devem ser ativadas com consentimento explícito; revise os aplicativos permitidos e não permita respostas automáticas para códigos de acesso ou notificações sensíveis.
+
+
+## Instagram Direct — respostas automáticas da Ayla
+
+O backend agora inclui um webhook para receber mensagens de texto de DMs e responder usando a persona da Ayla e o mesmo mecanismo de IA/memória. A integração usa a API oficial do Instagram, não automação por senha, scraping ou simulação de toques.
+
+### Pré-requisitos da Meta
+
+1. Use uma conta profissional do Instagram (Business ou Creator) e configure o acesso à API do Instagram no Meta for Developers.
+2. Configure a API com Instagram Login e conceda as permissões necessárias, incluindo `instagram_business_basic` e `instagram_business_manage_messages`.
+3. Configure Webhooks para o objeto Instagram e assine o evento `messages`.
+4. URL de callback: `https://influencer-ia-backend.onrender.com/instagram/webhook`
+5. Token de verificação: use exatamente o valor definido em `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`.
+6. Configure as credenciais abaixo no painel do serviço Render, em Environment. Nunca as publique no repositório nem no APK.
+
+### Variáveis de ambiente
+
+- `INSTAGRAM_ACCOUNT_ID`: ID da conta profissional do Instagram.
+- `INSTAGRAM_ACCESS_TOKEN`: token de acesso da conta com permissão para mensagens.
+- `META_APP_SECRET`: App Secret do app Meta; usado para validar `X-Hub-Signature-256`.
+- `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`: segredo aleatório criado por você para validar a inscrição do webhook.
+- `META_GRAPH_API_VERSION`: opcional; padrão atual do código `v26.0`.
+
+Após salvar as variáveis, confirme em `/health` que `instagram.configured` aparece como `true`. A verificação de webhook no painel da Meta deve passar antes de testar uma DM.
+
+### Limites e segurança
+
+- A resposta automática trata apenas mensagens de texto recebidas; ignora eventos de eco e mensagens sem texto.
+- O destinatário precisa iniciar a conversa. A API e as políticas da Meta limitam respostas automáticas à janela de atendimento permitida (normalmente 24 horas após a mensagem do usuário).
+- O app pode exigir modo de desenvolvimento/testadores ou análise e aprovação da Meta para responder a pessoas fora das funções de teste.
+- Os IDs de mensagens são deduplicados temporariamente em memória; para produção com alta disponibilidade, mova a deduplicação para PostgreSQL.
+- Antes de ativar para público, teste com uma conta autorizada e monitore os logs do Render. Não envie mensagens promocionais não solicitadas.
+- O webhook rejeita POSTs sem assinatura válida. A IA não deve alegar que é uma pessoa real; Ayla é uma personagem virtual.
