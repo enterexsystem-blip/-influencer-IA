@@ -263,9 +263,14 @@ const server = createServer(async (req, res) => {
       data = await upstream.json().catch(() => ({}));
       if (!upstream.ok) {
         console.error("OpenRouter respondeu com status", upstream.status);
-        if (upstream.status === 429) return send(res, 429, { error: "Limite de solicitações do provedor atingido." });
-        if (upstream.status === 401 || upstream.status === 403) return send(res, 502, { error: "A chave do OpenRouter foi rejeitada. Confira OPENROUTER_API_KEY ou AI_API_KEY." });
-        return send(res, 502, { error: "O OpenRouter recusou a solicitação. Confira o modelo e o acesso à API." });
+        const fallbackReply = phraseFallback(message, profile);
+        return send(res, 200, {
+          reply: fallbackReply,
+          provider: "local-phrases-fallback",
+          model: null,
+          fallback: true,
+          warning: "O provedor de IA não respondeu; foi usada uma resposta local."
+        });
       }
       reply = data.choices?.[0]?.message?.content?.trim() || "";
     } else {
@@ -285,17 +290,27 @@ const server = createServer(async (req, res) => {
       data = await upstream.json().catch(() => ({}));
       if (!upstream.ok) {
         console.error("Gemini respondeu com status", upstream.status);
-        if (upstream.status === 429) return send(res, 429, { error: "Limite de solicitações do Gemini atingido. Aguarde e tente novamente." });
-        if (upstream.status === 401) return send(res, 502, { error: "A chave do Gemini foi rejeitada. Confira GEMINI_API_KEY ou AI_API_KEY." });
-        if (upstream.status === 400 || upstream.status === 403) return send(res, 502, { error: "O Gemini recusou a solicitação. Confira o acesso à API e o modelo configurado." });
-        return send(res, 502, { error: "Não foi possível obter resposta do Gemini neste momento." });
+        const fallbackReply = phraseFallback(message, profile);
+        return send(res, 200, {
+          reply: fallbackReply,
+          provider: "local-phrases-fallback",
+          model: null,
+          fallback: true,
+          warning: "O provedor de IA não respondeu; foi usada uma resposta local."
+        });
       }
       reply = data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || "";
     }
 
     if (!reply) {
-      const reason = data?.promptFeedback?.blockReason;
-      return send(res, 502, { error: reason ? "O Gemini bloqueou esta mensagem. Tente reformular o texto." : "O modelo não retornou uma resposta de texto." });
+      const fallbackReply = phraseFallback(message, profile);
+      return send(res, 200, {
+        reply: fallbackReply,
+        provider: "local-phrases-fallback",
+        model: null,
+        fallback: true,
+        warning: "O modelo não devolveu texto; foi usada uma resposta local."
+      });
     }
 
     return send(res, 200, { reply, model: MODEL, provider: PROVIDER, learned: true, memory: learnedStyle });
