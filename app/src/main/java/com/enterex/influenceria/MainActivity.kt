@@ -310,9 +310,9 @@ class MainActivity : Activity() {
         if (!folder.exists()) folder.mkdirs()
         val files = folder.listFiles()?.filter { it.isFile }?.sortedByDescending { it.lastModified() } ?: emptyList()
         folderContents.text = if (files.isEmpty()) {
-            "📁  $selectedLibraryFolder\\n\\nEsta pasta está vazia. Usa “Importar foto ou arquivo” para adicionar conteúdo."
+            "📁  $selectedLibraryFolder\n\nEsta pasta está vazia. Usa “Importar foto ou arquivo” para adicionar conteúdo."
         } else {
-            "📁  $selectedLibraryFolder  ·  ${files.size} arquivo(s)\\n\\n" + files.joinToString("\\n") { file ->
+            "📁  $selectedLibraryFolder  ·  ${files.size} arquivo(s)\n\n" + files.joinToString("\n") { file ->
                 val kb = (file.length() / 1024).coerceAtLeast(1)
                 "• ${file.name}  ·  ${kb} KB"
             }
@@ -359,7 +359,7 @@ class MainActivity : Activity() {
             try {
                 val folder = java.io.File(java.io.File(filesDir, "AylaLibrary"), safeFolderName(selectedLibraryFolder))
                 folder.mkdirs()
-                val cleanName = displayName.map { if (it in "/\\\\:*?\\"<>|") '_' else it }.joinToString("").take(100)
+                val cleanName = displayName.map { ch -> if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|') '_' else ch }.joinToString("").take(100)
                 var target = java.io.File(folder, cleanName)
                 if (target.exists()) {
                     val dot = cleanName.lastIndexOf('.')
