@@ -220,6 +220,30 @@ const server = createServer(async (req, res) => {
     });
   }
 
+  if (req.method === "POST" && requestUrl.pathname === "/memory/event") {
+    try {
+      const body = await readJson(req);
+      const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\\-]/g, "").slice(0, 180) : "";
+      const message = typeof body.message === "string" ? body.message.trim().slice(0, MAX_MESSAGE_CHARS) : "";
+      const localHour = Number.isInteger(body.localHour) ? Math.max(0, Math.min(23, body.localHour)) : null;
+      if (!userId || !message) return send(res, 400, { error: "Identificador e mensagem são obrigatórios." });
+      const profile = await loadProfile(userId);
+      rememberConversationEvent(profile, {
+        role: "user",
+        text: message,
+        at: Date.now(),
+        localHour,
+        reason: localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
+        autoReplyEnabled: body.autoReplyEnabled === true
+      });
+      await saveProfile(userId, profile);
+      return send(res, 200, { saved: true });
+    } catch (error) {
+      console.error("Falha ao guardar evento de conversa:", error?.message || "erro");
+      return send(res, 500, { error: "Não foi possível guardar a memória da conversa." });
+    }
+  }
+
   if (req.method !== "POST" || req.url !== "/chat") {
     return send(res, 404, { error: "Rota não encontrada." });
   }
@@ -236,12 +260,35 @@ const server = createServer(async (req, res) => {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     fallbackMessage = message;
     const relationshipLevel = Number.isInteger(body.relationshipLevel) ? Math.max(0, Math.min(100, body.relationshipLevel)) : 0;
+    const localHour = Number.isInteger(body.localHour) ? Math.max(0, Math.min(23, body.localHour)) : null;
     const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
     if (!userId) return send(res, 400, { error: "Identificador de usuário ausente." });
     fallbackUserId = userId;
     const profile = await loadProfile(userId);
     fallbackProfile = profile;
+    rememberConversationEvent(profile, {
+      role: "user",
+      text: message,
+      at: Date.now(),
+      localHour,
+      reason: localHour !== null && localHour >= 0 && localHour < 8 ? "sleep" : null,
+      autoReplyEnabled: body.autoReplyEnabled !== false
+    });
     observeStyle(message, profile);
+    await saveProfile(userId, profile);
+
+    if (localHour !== null && localHour >= 0 && localHour < 8) {
+      return send(res, 200, { reply: "", shouldReply: false, reason: "sleep", provider: "local-memory" });
+    }
+
+    const unansweredSleep = findUnansweredSleepMessage(profile);
+    if (unansweredSleep && asksWhyNoReply(message)) {
+      const reply = "Foi mal, eu já tava dormindo naquela hora 😴 vi tuas mensagens agora de manhã.";
+      rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now(), localHour });
+      unansweredSleep.reasonHandledAt = Date.now();
+      await saveProfile(userId, profile);
+      return send(res, 200, { reply, shouldReply: true, provider: "local-memory", learned: true, memory: "Lembrei das mensagens que chegaram durante meu horário de descanso." });
+    }
     await saveProfile(userId, profile);
     const learnedStyle = profileSummary(profile);
 
@@ -319,6 +366,8 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now(), localHour });
+    await saveProfile(userId, profile);
     return send(res, 200, { reply, model: MODEL, provider: PROVIDER, learned: true, memory: learnedStyle });
   } catch (error) {
     if (error?.status) return send(res, error.status, { error: error.message });
@@ -336,6 +385,57 @@ const server = createServer(async (req, res) => {
   }
 });
 
+
+function rememberConversationEvent(profile, event) {
+  profile.conversationEvents ||= [];
+  const normalizedText = String(event.text || "").trim().toLocaleLowerCase("pt-BR");
+  if (!normalizedText) return null;
+  const existing = [...profile.conversationEvents].reverse().find(item =>
+    item.role === event.role &&
+    String(item.text || "").trim().toLocaleLowerCase("pt-BR") === normalizedText &&
+    Math.abs(Number(event.at || Date.now()) - Number(item.at || 0)) < 90_000
+  );
+  if (existing) {
+    if (!existing.reason && event.reason) existing.reason = event.reason;
+    if (event.localHour !== null && event.localHour !== undefined) existing.localHour = event.localHour;
+    if (event.autoReplyEnabled === true) existing.autoReplyEnabled = true;
+    return existing;
+  }
+  const saved = {
+    role: event.role,
+    text: String(event.text).slice(0, 1000),
+    at: Number(event.at || Date.now()),
+    localHour: Number.isInteger(event.localHour) ? event.localHour : null,
+    reason: event.reason || null,
+    autoReplyEnabled: event.autoReplyEnabled === true,
+    reasonHandledAt: null
+  };
+  profile.conversationEvents.push(saved);
+  profile.conversationEvents = profile.conversationEvents.slice(-120);
+  return saved;
+}
+
+function asksWhyNoReply(message) {
+  const text = message.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  return /(pq|por que|porque|por que sera).{0,50}(nao respondeu|nao falou|sumiu|deixou no vacuo|me ignorou|demorou)|((nao respondeu|sumiu|me ignorou|deixou no vacuo).{0,50}(pq|por que|porque))/.test(text);
+}
+
+function findUnansweredSleepMessage(profile) {
+  const events = Array.isArray(profile.conversationEvents) ? profile.conversationEvents : [];
+  const cutoff = Date.now() - 36 * 60 * 60 * 1000;
+  const lastSleepMessage = [...events].reverse().find(event =>
+    event.role === "user" &&
+    event.reason === "sleep" &&
+    Number(event.at) >= cutoff &&
+    !event.reasonHandledAt
+  );
+  if (!lastSleepMessage) return null;
+  const answeredAfter = events.some(event =>
+    event.role === "assistant" &&
+    Number(event.at) > Number(lastSleepMessage.at)
+  );
+  return answeredAfter ? null : lastSleepMessage;
+}
 
 async function initStore() {
   if (!process.env.DATABASE_URL) { console.warn("DATABASE_URL ausente: memória temporária, perdida ao reiniciar."); return; }
@@ -379,6 +479,7 @@ function profileSummary(profile) {
 }
 async function phraseFallbackAndSave(message, profile, userId) {
   const reply = phraseFallback(message, profile);
+  rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() });
   if (userId) await saveProfile(userId, profile);
   return reply;
 }
