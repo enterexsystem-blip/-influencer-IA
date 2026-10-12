@@ -26,6 +26,13 @@ class NotificationReaderService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
+
+        val prefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
+        val selectedPackage = prefs.getString(MainActivity.KEY_SELECTED_PACKAGE, "").orEmpty()
+
+        // Privacy by default: do not read, save, or reply to other apps' notifications.
+        if (selectedPackage.isBlank() || sbn.packageName != selectedPackage) return
+
         val extras = sbn.notification.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = (
@@ -36,7 +43,6 @@ class NotificationReaderService : NotificationListenerService() {
 
         if (title.isBlank() && text.isBlank()) return
 
-        val prefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
         prefs.edit()
             .putString(MainActivity.KEY_PACKAGE, sbn.packageName)
             .putString(MainActivity.KEY_TITLE, title)
@@ -89,7 +95,7 @@ class NotificationReaderService : NotificationListenerService() {
                 RemoteInput.addResultsToIntent(remoteInputs, intent, results)
                 action.actionIntent.send(this, 0, intent)
             } catch (_: Exception) {
-                // Keep notification content private; do not log message text or generated replies.
+                // Do not log message text or generated replies.
             }
         }.start()
     }
