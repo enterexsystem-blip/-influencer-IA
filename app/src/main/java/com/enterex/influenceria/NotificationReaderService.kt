@@ -49,6 +49,43 @@ class NotificationReaderService : NotificationListenerService() {
         return "friendship_" + digest.take(12).joinToString("") { "%02x".format(it) }
     }
 
+    private fun logIncomingMessage(
+        packageName: String,
+        title: String,
+        message: String,
+        userId: String,
+        autoReplyEnabled: Boolean
+    ) {
+        if (message.isBlank() || userId.isBlank()) return
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                connection = (URL("$BACKEND_URL/memory/event").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("Accept", "application/json")
+                }
+                val payload = JSONObject()
+                    .put("userId", userId)
+                    .put("packageName", packageName)
+                    .put("contactName", title)
+                    .put("message", message.take(4000))
+                    .put("localHour", java.time.LocalTime.now().hour)
+                    .put("autoReplyEnabled", autoReplyEnabled)
+                    .toString()
+                connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+                connection.responseCode
+            } catch (_: Exception) {
+                // A temporary network failure must not block notification handling.
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
         val prefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
@@ -71,8 +108,13 @@ class NotificationReaderService : NotificationListenerService() {
             .putLong(MainActivity.KEY_TIME, System.currentTimeMillis())
             .apply()
 
-        if (!prefs.getBoolean(AUTO_REPLY_ENABLED, false)) {
-            setReplyStatus(prefs, "Notificação lida, mas as respostas automáticas estão desligadas.")
+        val autoReplyEnabled = prefs.getBoolean(AUTO_REPLY_ENABLED, false)
+        if (text.isNotBlank()) {
+            val memoryId = if (isCreator(title, text)) "creator:kyodai.logic" else contactMemoryId(sbn.packageName, title)
+            logIncomingMessage(sbn.packageName, title, text, memoryId, autoReplyEnabled)
+        }
+        if (!autoReplyEnabled) {
+            setReplyStatus(prefs, "Notificação lida e registrada na memória, mas as respostas automáticas estão desligadas.")
             return
         }
         if (text.isBlank()) {
@@ -156,6 +198,8 @@ class NotificationReaderService : NotificationListenerService() {
                         .put("message", "$relationshipNote\nNome exibido do contato: $title. Mensagem recebida: $text")
                         .put("relationshipLevel", relationshipLevel)
                         .put("userId", if (creator) "creator:kyodai.logic" else contactMemoryId(sbn.packageName, title))
+                        .put("localHour", java.time.LocalTime.now().hour)
+                        .put("autoReplyEnabled", true)
                         .toString()
                     connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
                     val status = connection.responseCode
@@ -164,7 +208,17 @@ class NotificationReaderService : NotificationListenerService() {
                         return@Thread
                     }
                     val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    JSONObject(response).optString("reply").trim()
+                    val responseJson = JSONObject(response)
+                    if (responseJson.has("shouldReply") && !responseJson.optBoolean("shouldReply", true)) {
+                        val reason = responseJson.optString("reason")
+                        setReplyStatus(prefs, if (reason == "sleep") {
+                            "Ayla está dormindo agora. A mensagem foi guardada para ela lembrar de manhã."
+                        } else {
+                            "Ayla decidiu não responder automaticamente a esta mensagem."
+                        })
+                        return@Thread
+                    }
+                    responseJson.optString("reply").trim()
                 } finally {
                     connection.disconnect()
                 }
