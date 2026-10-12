@@ -195,7 +195,8 @@ class NotificationReaderService : NotificationListenerService() {
                         "Nível atual de amizade com esta pessoa: $relationshipLevel/100. Ajuste a intimidade ao nível: se baixo, seja mais distante; se alto, mais próxima. Não mencione pontuação nem explique que está escolhendo quando responder."
                     }
                     val payload = JSONObject()
-                        .put("message", "$relationshipNote\nNome exibido do contato: $title. Mensagem recebida: $text")
+                        .put("message", text)
+                        .put("contextNote", "$relationshipNote Nome exibido do contato: $title.")
                         .put("relationshipLevel", relationshipLevel)
                         .put("userId", if (creator) "creator:kyodai.logic" else contactMemoryId(sbn.packageName, title))
                         .put("localHour", java.time.LocalTime.now().hour)
