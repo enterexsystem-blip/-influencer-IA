@@ -37,6 +37,7 @@ class MainActivity : Activity() {
     private lateinit var messageInput: EditText
     private lateinit var replyText: TextView
     private lateinit var sendButton: Button
+    private lateinit var autoReplyButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,6 +100,21 @@ class MainActivity : Activity() {
         }
         content.addView(refreshButton, fullWidthWithTop())
 
+        autoReplyButton = Button(this).apply {
+            isAllCaps = false
+            setOnClickListener {
+                val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                val enabled = !prefs.getBoolean(NotificationReaderService.AUTO_REPLY_ENABLED, false)
+                prefs.edit().putBoolean(NotificationReaderService.AUTO_REPLY_ENABLED, enabled).apply()
+                updateAutoReplyButton()
+            }
+        }
+        content.addView(autoReplyButton, fullWidthWithTop())
+        content.addView(label(
+            "Quando ativado, a IA pode responder automaticamente a notificações que tenham uma ação de resposta compatível. Use com cuidado: as mensagens geradas serão enviadas sem revisão manual.",
+            12, muted, false
+        ).apply { setPadding(dp(4), dp(8), dp(4), dp(4)) }, matchWrap())
+
         val previewCard = card(panel)
         previewCard.addView(label("ÚLTIMA NOTIFICAÇÃO DISPONÍVEL", 11, muted, true), matchWrap())
         packageText = label("Aplicativo: —", 13, accent, true)
@@ -124,8 +140,7 @@ class MainActivity : Activity() {
             gravity = Gravity.TOP
             setBackgroundColor(Color.rgb(34, 40, 58))
         }
-        val inputParams = matchWrap().apply { topMargin = dp(12) }
-        chatCard.addView(messageInput, inputParams)
+        chatCard.addView(messageInput, matchWrap().apply { topMargin = dp(12) })
 
         sendButton = Button(this).apply {
             text = "Gerar resposta com IA"
@@ -142,11 +157,21 @@ class MainActivity : Activity() {
         content.addView(chatCard, fullWidthWithTop())
 
         content.addView(label(
-            "PRIVACIDADE\nA leitura de notificações depende da permissão do Android e só acessa o conteúdo disponibilizado pelo próprio aviso. Nesta etapa, o app mostra a última notificação e permite testar a IA manualmente; ele ainda não envia respostas automaticamente para outros aplicativos.",
+            "PRIVACIDADE\nA leitura depende da permissão do Android e só acessa o conteúdo disponibilizado pela notificação. O app guarda a última notificação localmente. Respostas automáticas só funcionam quando ativadas por você e quando o app de mensagens oferece uma ação de resposta compatível.",
             12, muted, false
         ).apply { setPadding(dp(4), dp(18), dp(4), dp(8)) }, matchWrap())
 
         setContentView(root)
+        updateAutoReplyButton()
+    }
+
+    private fun updateAutoReplyButton() {
+        if (!::autoReplyButton.isInitialized) return
+        val enabled = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getBoolean(NotificationReaderService.AUTO_REPLY_ENABLED, false)
+        autoReplyButton.text = if (enabled) "Respostas automáticas: ATIVADAS" else "Ativar respostas automáticas"
+        autoReplyButton.setBackgroundColor(if (enabled) Color.rgb(183, 72, 82) else Color.rgb(91, 115, 255))
+        autoReplyButton.setTextColor(Color.WHITE)
     }
 
     private fun generateReply() {
@@ -171,28 +196,23 @@ class MainActivity : Activity() {
                     setRequestProperty("Accept", "application/json")
                 }
                 try {
-                    val payload = JSONObject()
-                        .put("message", message)
-                        .put("relationshipLevel", 0)
-                        .toString()
+                    val payload = JSONObject().put("message", message).put("relationshipLevel", 0).toString()
                     connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
                     val status = connection.responseCode
                     val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                     val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                     val json = runCatching { JSONObject(response) }.getOrNull()
                     result = if (status in 200..299) {
-                        json?.optString("reply")?.takeIf { it.isNotBlank() }
-                            ?: "O servidor respondeu, mas não enviou texto."
+                        json?.optString("reply")?.takeIf { it.isNotBlank() } ?: "O servidor respondeu, mas não enviou texto."
                     } else {
-                        json?.optString("error")?.takeIf { it.isNotBlank() }
-                            ?: "Erro HTTP $status ao consultar o servidor."
+                        json?.optString("error")?.takeIf { it.isNotBlank() } ?: "Erro HTTP $status ao consultar o servidor."
                     }
                 } finally {
                     connection.disconnect()
                 }
             } catch (e: Exception) {
                 result = when (e) {
-                    is java.net.UnknownHostException -> "Não consegui localizar o servidor. O endereço do Render pode ser diferente; precisamos confirmar o endereço público do serviço."
+                    is java.net.UnknownHostException -> "Não consegui localizar o servidor. O endereço público do Render pode ser diferente."
                     is java.net.SocketTimeoutException -> "O servidor demorou demais para responder. Tente novamente em alguns segundos."
                     else -> "Falha na conexão: ${e.localizedMessage ?: e.javaClass.simpleName}"
                 }
@@ -229,6 +249,7 @@ class MainActivity : Activity() {
         timeText.text = if (timestamp > 0L) {
             "Recebida: " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp))
         } else ""
+        updateAutoReplyButton()
     }
 
     private fun label(text: String, size: Int, color: Int, bold: Boolean): TextView =
