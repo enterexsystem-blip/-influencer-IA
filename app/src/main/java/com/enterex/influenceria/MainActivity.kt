@@ -99,7 +99,7 @@ class MainActivity : Activity() {
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(22), dp(20), dp(22))
-            background = roundedGradient(intArrayOf(Color.rgb(52, 43, 101), Color.rgb(26, 34, 64)), dp(24))
+            this.background = roundedGradient(intArrayOf(Color.rgb(52, 43, 101), Color.rgb(26, 34, 64)), dp(24))
         }
         hero.addView(label("ENTEREX  /  AYLA AI", 11, Color.rgb(203, 193, 255), true), matchWrap())
         hero.addView(label("Sua Ayla.", 32, white, true).apply { setPadding(0, dp(8), 0, dp(3)) }, matchWrap())
@@ -208,14 +208,14 @@ class MainActivity : Activity() {
             setTextColor(white); setHintTextColor(muted); textSize = 15f
             setPadding(dp(14), dp(12), dp(14), dp(12)); minLines = 3; maxLines = 6
             gravity = Gravity.TOP
-            background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
+            this.background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
         }
         chatCard.addView(messageInput, fullWidthWithTop())
         sendButton = actionButton("Gerar resposta", accent) { generateReply() }
         chatCard.addView(sendButton, fullWidthWithTop())
         replyText = label("A resposta da Ayla aparecerá aqui.", 14, white, false).apply {
             setPadding(dp(14), dp(14), dp(14), dp(14))
-            background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
+            this.background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
         }
         chatCard.addView(replyText, fullWidthWithTop())
         content.addView(chatCard, fullWidthWithTop())
@@ -230,7 +230,7 @@ class MainActivity : Activity() {
         libraryCard.addView(actionButton("＋ Importar outros arquivos", Color.rgb(48, 59, 88)) { openImportPicker() }, fullWidthWithTop())
         folderContents = label("Carregando pastas…", 13, white, false).apply {
             setPadding(dp(14), dp(14), dp(14), dp(14))
-            background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
+            this.background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
         }
         libraryCard.addView(folderContents, fullWidthWithTop())
         folderFileList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -265,7 +265,7 @@ class MainActivity : Activity() {
             isAllCaps = false
             textSize = 14f
             setTextColor(Color.WHITE)
-            background = roundedSolid(color, dp(14))
+            this.background = roundedSolid(color, dp(14))
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { action() }
         }
@@ -325,7 +325,7 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(10), dp(6), dp(6), dp(6))
-                    background = roundedSolid(Color.rgb(30, 37, 57), dp(12))
+                    this.background = roundedSolid(Color.rgb(30, 37, 57), dp(12))
                 }
                 val kb = (file.length() / 1024).coerceAtLeast(1)
                 val name = label("${file.name}\n${kb} KB", 12, Color.rgb(244, 246, 255), false)
