@@ -199,7 +199,7 @@ function profileSummary(profile) {
 }
 function phraseFallback(message, profile) {
   const t = message.toLocaleLowerCase("pt-BR");
-  if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\\s]*$/i.test(t)) {
+  if (/^(oi+|olá|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite)[!.?\s]*$/i.test(t)) {
     const learned = Object.entries(profile?.slangCounts || {}).filter(([, n]) => n >= 2).sort((a,b) => b[1]-a[1])[0]?.[0];
     if (learned === "mn" || learned === "mano") return "eae, mano kkkkk, tudo certo?";
     if (learned === "slk" || learned === "tlgd") return "eae kkkkk, qual foi? suave?";
@@ -208,7 +208,7 @@ function phraseFallback(message, profile) {
   if (/(kkkk+|rsrs+|hahaha+)/i.test(t)) return "KKKKKK qual foi? 😂";
   if (/(tô triste|to triste|mal hoje|dia ruim|tô mal|to mal)/i.test(t)) return "poxa, sinto muito. Quer me contar o que rolou?";
   if (/(obrigad[oa]|valeu|tmj)/i.test(t)) return "imagina kkk, tamo junto 🤝";
-  if (/(tudo bem\\??|suave\\??|blz\\??)/i.test(t)) return "tudo tranquilo por aqui kkk, e contigo?";
+  if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return "tudo tranquilo por aqui kkk, e contigo?";
   return "entendi kkk. Me conta mais um pouco pra eu pegar o contexto.";
 }
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
