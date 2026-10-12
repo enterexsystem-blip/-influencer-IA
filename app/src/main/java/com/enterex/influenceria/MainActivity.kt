@@ -99,7 +99,7 @@ class MainActivity : Activity() {
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(22), dp(20), dp(22))
-            this.background = roundedGradient(intArrayOf(Color.rgb(52, 43, 101), Color.rgb(26, 34, 64)), dp(24))
+            setBackground(roundedGradient(intArrayOf(Color.rgb(52, 43, 101), Color.rgb(26, 34, 64)), dp(24)))
         }
         hero.addView(label("ENTEREX  /  AYLA AI", 11, Color.rgb(203, 193, 255), true), matchWrap())
         hero.addView(label("Sua Ayla.", 32, white, true).apply { setPadding(0, dp(8), 0, dp(3)) }, matchWrap())
@@ -208,7 +208,7 @@ class MainActivity : Activity() {
             setTextColor(white); setHintTextColor(muted); textSize = 15f
             setPadding(dp(14), dp(12), dp(14), dp(12)); minLines = 3; maxLines = 6
             gravity = Gravity.TOP
-            this.background = roundedSolid(Color.rgb(30, 37, 57), dp(14))
+            setBackground(roundedSolid(Color.rgb(30, 37, 57), dp(14)))
         }
         chatCard.addView(messageInput, fullWidthWithTop())
         sendButton = actionButton("Gerar resposta", accent) { generateReply() }
