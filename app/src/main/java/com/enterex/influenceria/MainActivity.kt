@@ -197,7 +197,7 @@ class MainActivity : Activity() {
                 clipboard.setPrimaryClip(ClipData.newPlainText("Resposta da Ayla", draft))
                 Toast.makeText(this, "Resposta copiada.", Toast.LENGTH_LONG).show()
             }
-        }, ), fullWidthWithTop())
+        }, fullWidthWithTop())
         content.addView(inboxCard, fullWidthWithTop())
 
         val chatCard = card(panel)
