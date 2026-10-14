@@ -478,7 +478,7 @@ async function getTelegramMedia(category, types = []) {
   }
   return items;
 }
-async function sendTelegramStoredMedia(chatId, item, caption = "") {
+async function sendTelegramStoredMedia(chatId, item, caption = "", replyMarkup = null) {
   if (!TELEGRAM_BOT_TOKEN || !item?.fileId) throw new Error("Mídia do Telegram inválida.");
   const methodByType = { audio: "sendAudio", voice: "sendVoice", video: "sendVideo", animation: "sendAnimation", document: "sendDocument", video_note: "sendVideoNote", photo: "sendPhoto" };
   const method = methodByType[item.type];
@@ -486,6 +486,7 @@ async function sendTelegramStoredMedia(chatId, item, caption = "") {
   const payload = { chat_id: chatId };
   payload[method === "sendPhoto" ? "photo" : method === "sendAudio" ? "audio" : method === "sendVoice" ? "voice" : method === "sendVideo" ? "video" : method === "sendAnimation" ? "animation" : method === "sendDocument" ? "document" : "video_note"] = item.fileId;
   if (caption && !["sendVideoNote"].includes(method)) payload.caption = String(caption).slice(0, 900);
+  if (replyMarkup) payload.reply_markup = replyMarkup;
   const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/" + method, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(25000)
   });
@@ -547,7 +548,7 @@ async function sendTelegramVideo(chatId, fileName, caption = "") {
 }
 
 async function sendTelegramPhoto(chatId, relativePath, caption = "", replyMarkup = null) {
-  if (relativePath && typeof relativePath === "object" && relativePath.fileId) return sendTelegramStoredMedia(chatId, relativePath, caption);
+  if (relativePath && typeof relativePath === "object" && relativePath.fileId) return sendTelegramStoredMedia(chatId, relativePath, caption, replyMarkup);
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
   if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de foto inválido.");
   const bytes = await readFile(join(PHOTO_DIR, relativePath));
