@@ -275,7 +275,7 @@ async function sendTelegramAudio(chatId, relativePath) {
       signal: AbortSignal.timeout(20000)
     });
   } else {
-    const baseUrl = process.env.AUDIO_BASE_URL?.trim().replace(/\\/+$/, "");
+    const baseUrl = process.env.AUDIO_BASE_URL?.trim().replace(/\/+$/, "");
     if (!baseUrl) {
       console.error("MP3 não encontrado no deploy e AUDIO_BASE_URL não está configurada:", relativePath);
       return false;
