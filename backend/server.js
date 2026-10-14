@@ -1,8 +1,13 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expandedFallback } from "./local-responses-v2.js";
 
 const PORT = Number(process.env.PORT || 8080);
+const BACKEND_DIR = dirname(fileURLToPath(import.meta.url));
+const AUDIO_DIR = join(BACKEND_DIR, "..", "media", "audios");
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
 const API_KEY = KEY_CANDIDATES.find(key => key.startsWith("sk-or-v1-")) || KEY_CANDIDATES[0] || "";
 const PROVIDER = API_KEY.startsWith("sk-or-v1-") ? "openrouter" : (process.env.AI_PROVIDER || "gemini").toLowerCase();
@@ -210,6 +215,60 @@ async function sendTelegramText(chatId, text) {
   if (!response.ok || data.ok !== true) throw new Error("A API do Telegram não aceitou a mensagem.");
 }
 
+function chooseTelegramAudio(sourceMessage, reply) {
+  const source = String(sourceMessage || "").toLocaleLowerCase("pt-BR");
+  const answer = String(reply || "").toLocaleLowerCase("pt-BR");
+  if (/^(oi+|ol[aá]|eae|eai|opa|salve|bom dia|boa tarde|boa noite)[!.?\\s]*$/.test(source)) {
+    const greetings = [
+      "01-cumprimentos/oi_animado.mp3",
+      "01-cumprimentos/oi_enfatizado.mp3",
+      "01-cumprimentos/oi_sussurrado.mp3",
+      "01-cumprimentos/oi_triste.mp3",
+      "01-cumprimentos/oi_envergonhado.mp3",
+      "01-cumprimentos/oi_irritado.mp3"
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+  if (/(tudo bem|como (tu|voc[eê]) (t[aá]|est[aá])|como c[eê] (t[aá]|est[aá])|como vai)/i.test(source)) {
+    return "02-respostas-curtas/estou_bem_obrigada.mp3";
+  }
+  if (/(n[aã]o falou comigo hoje|sentiu minha falta|saudade|sumida|sumido)/i.test(source) || /n[aã]o falou comigo hoje/i.test(answer)) {
+    return "03-emocoes/nao_falou_comigo_hoje_triste.mp3";
+  }
+  if (/(foi tomar banho|tomar banho|cad[eê] tu|onde tu tava|onde voc[eê] tava)/i.test(source)) {
+    return "04-ausencias-desculpas/fui_tomar_banho.mp3";
+  }
+  if (/(dormiu|foi dormir|por que demorou|pq demorou|demorou pra responder)/i.test(source)) {
+    return "04-ausencias-desculpas/acabei_dormindo.mp3";
+  }
+  if (/(cansad[oa]|exaust[oa]|sono)/i.test(source) || /apenas um pouco/i.test(answer)) {
+    return "02-respostas-curtas/estou_apenas_um_pouco_cansada.mp3";
+  }
+  return null;
+}
+
+async function sendTelegramAudio(chatId, relativePath) {
+  if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
+  if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de áudio inválido.");
+  let bytes;
+  try {
+    bytes = await readFile(join(AUDIO_DIR, relativePath));
+  } catch {
+    return false;
+  }
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), relativePath.split("/").pop());
+  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(20000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true) throw new Error("A API do Telegram não aceitou o áudio.");
+  return true;
+}
+
 async function sendTelegramTyping(chatId) {
   if (!TELEGRAM_BOT_TOKEN) return;
   const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendChatAction", {
@@ -276,29 +335,45 @@ async function deliverScheduledTelegramReply(job) {
       return;
     }
     // Só começa a aparecer "digitando..." quando chega a hora de responder.
-    await simulateTelegramTyping(chatId, job.source_message ?? job.sourceMessage ?? "");
-    await sendTelegramText(chatId, job.reply);
+    const sourceMessage = job.source_message ?? job.sourceMessage ?? "";
+    await simulateTelegramTyping(chatId, sourceMessage);
+    const replyText = String(job.reply || "");
+    if (replyText.startsWith("__AYLA_AUDIO__")) {
+      const audioPath = chooseTelegramAudio(sourceMessage, replyText.slice("__AYLA_AUDIO__".length));
+      if (audioPath) {
+        const sent = await sendTelegramAudio(chatId, audioPath);
+        if (!sent) console.log("Ayla ficou em silêncio: o áudio correspondente ainda não está instalado:", audioPath);
+        else console.log("Áudio original da Ayla enviado:", audioPath);
+      } else {
+        console.log("Ayla ficou em silêncio: não existe áudio catalogado para esta situação.");
+      }
+    } else {
+      await sendTelegramText(chatId, replyText);
+      console.log("Resposta em texto da Ayla enviada.");
+    }
     if (dbReady && job.id) await pool.query("DELETE FROM telegram_pending_replies WHERE id = $1", [job.id]);
     if (job.localId) localScheduledTelegramReplies.delete(job.localId);
     scheduledTelegramTimers.delete(String(job.id ?? job.localId));
-    console.log("Resposta agendada da Ayla enviada.");
   } catch (error) {
     console.error("Falha ao enviar resposta agendada da Ayla:", error?.message || "erro");
   }
 }
 
-async function scheduleTelegramReply(chatId, reply, sourceMessage, delayMs) {
+async function scheduleTelegramReply(chatId, reply, sourceMessage, delayMs, responseMode = "texto") {
   const dueAt = new Date(Date.now() + delayMs);
+  // Em "ambos", sorteia 50/50. Se cair em áudio sem gravação compatível, não envia texto como substituto.
+  const useAudio = responseMode === "audio" || (responseMode === "ambos" && Math.random() < 0.5);
+  const storedReply = useAudio ? "__AYLA_AUDIO__" + String(reply || "") : String(reply || "");
   let job;
   if (dbReady) {
     const result = await pool.query(
       "INSERT INTO telegram_pending_replies (chat_id, reply, source_message, due_at) VALUES ($1, $2, $3, $4) RETURNING id, chat_id, reply, source_message, due_at",
-      [String(chatId), String(reply), String(sourceMessage || ""), dueAt]
+      [String(chatId), storedReply, String(sourceMessage || ""), dueAt]
     );
     job = result.rows[0];
   } else {
     const localId = "local-" + Date.now() + "-" + Math.random().toString(36).slice(2);
-    job = { localId, chatId, reply, sourceMessage, due_at: dueAt };
+    job = { localId, chatId, reply: storedReply, sourceMessage, due_at: dueAt };
     localScheduledTelegramReplies.set(localId, job);
   }
   const timer = setTimeout(() => deliverScheduledTelegramReply(job), delayMs);
@@ -381,7 +456,8 @@ async function processTelegramUpdate(update) {
       return;
     }
     const delay = chooseTelegramDelay(text, level);
-    await scheduleTelegramReply(chatId, reply, text, delay);
+    const responseMode = ["texto", "audio", "ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
+    await scheduleTelegramReply(chatId, reply, text, delay, responseMode);
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
   } catch (error) {
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
