@@ -453,8 +453,7 @@ async function sendTelegramAudio(chatId, relativePath) {
   if (bytes) {
     const form = new FormData();
     form.append("chat_id", String(chatId));
-    form.append("reply_markup", JSON.stringify({inline_keyboard:[[{text:"✅ Já ouvi tudo — apagar áudio",callback_data:"ayla:heard:0"}]]}));
-    const uploadName = relativePath.split("/").pop();
+        const uploadName = relativePath.split("/").pop();
     form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), /\.[a-z0-9]{2,5}$/i.test(uploadName) ? uploadName : uploadName + ".mp3");
     response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
       method: "POST",
@@ -471,7 +470,7 @@ async function sendTelegramAudio(chatId, relativePath) {
     response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, audio: audioUrl, reply_markup:{inline_keyboard:[[{text:"✅ Já ouvi tudo — apagar áudio",callback_data:"ayla:heard:0"}]]} }),
+      body: JSON.stringify({ chat_id: chatId, audio: audioUrl }),
       signal: AbortSignal.timeout(20000)
     });
   }
@@ -485,19 +484,25 @@ async function sendTelegramAudio(chatId, relativePath) {
   const sentMessage = data.result || {};
   const messageId = sentMessage.message_id;
   const durationSeconds = Number(sentMessage.audio?.duration || 0);
-  // O Telegram não informa quando a reprodução termina. A exclusão só ocorre
-  // quando Kyodai toca no botão "Já ouvi tudo — apagar áudio".
+  // O Telegram não envia ao bot um evento quando o usuário começa/termina de ouvir.
+  // Portanto, removemos o áudio automaticamente após sua duração + 2 segundos,
+  // contados a partir do envio, sem botão manual.
   if (messageId) {
-    // Troca o callback temporário pelo ID real da mensagem enviada.
-    // editMessageReplyMarkup permite ligar o botão à mensagem certa.
-    fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/editMessageReplyMarkup", {
-      method: "POST", headers: {"content-type":"application/json"},
-      body: JSON.stringify({chat_id:chatId,message_id:messageId,reply_markup:{inline_keyboard:[[{text:"✅ Já ouvi tudo — apagar áudio",callback_data:"ayla:heard:"+messageId}]]}}),
-      signal: AbortSignal.timeout(8000)
-    }).then(async response => {
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.ok !== true) console.warn("Não foi possível atualizar o botão de exclusão do áudio:", result.description || response.status);
-    }).catch(error => recordDiagnosticError("telegram.audio_button", error));
+    const deleteAfterMs = Math.max(2, durationSeconds + 2) * 1000;
+    const timer = setTimeout(async () => {
+      try {
+        const deleted = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
+          method: "POST", headers: {"content-type":"application/json"},
+          body: JSON.stringify({chat_id:chatId,message_id:messageId}),
+          signal: AbortSignal.timeout(8000)
+        });
+        const result = await deleted.json().catch(() => ({}));
+        if (!deleted.ok || result.ok !== true) console.warn("Não foi possível apagar o áudio automaticamente:", result.description || deleted.status);
+      } catch (error) {
+        recordDiagnosticError("telegram.audio_auto_delete", error);
+      }
+    }, deleteAfterMs);
+    timer.unref?.();
   }
   return { messageId, durationSeconds };
 }
@@ -744,26 +749,6 @@ async function answerTelegramCallback(q) {
   const id = String(q.from.id);
   const chatId = q.message?.chat?.id;
   const key = String(q.data || "");
-  if (key.startsWith("ayla:heard:")) {
-    const messageId = Number(key.slice("ayla:heard:".length));
-    if (!Number.isInteger(messageId) || !chatId || String(q.from.id) !== KYODAI_TELEGRAM_USER_ID) {
-      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
-        method: "POST", headers: {"content-type":"application/json"},
-        body: JSON.stringify({callback_query_id:q.id,text:"Esse botão só pode ser usado pelo criador.",show_alert:true})
-      }).catch(()=>{});
-      return;
-    }
-    const result = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
-      method: "POST", headers: {"content-type":"application/json"},
-      body: JSON.stringify({chat_id:chatId,message_id:messageId}),
-      signal: AbortSignal.timeout(8000)
-    }).then(response => response.json()).catch(() => ({ok:false}));
-    await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
-      method: "POST", headers: {"content-type":"application/json"},
-      body: JSON.stringify({callback_query_id:q.id,text:result.ok ? "Áudio apagado. 💗" : "Não consegui apagar o áudio; confira as permissões."})
-    }).catch(()=>{});
-    return;
-  }
   if (key.startsWith("failover:")) {
     if (id !== KYODAI_TELEGRAM_USER_ID) {
       await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Só o criador pode autorizar a troca.",show_alert:true}) }).catch(()=>{});
