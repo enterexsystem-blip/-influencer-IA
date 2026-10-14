@@ -349,7 +349,7 @@ async function processTelegramUpdate(update) {
     await sendTelegramText(chatId, "Prontinho 💗 " + note);
     return;
   }
-  if (text.startsWith("/")) { await sendTelegramText(chatId, "Não conheço esse comando ainda. Digite /menu para ver os comandos disponíveis."); return; }
+  if (text.startsWith("/") && !text.startsWith("/nivel")) { await sendTelegramText(chatId, "Não conheço esse comando ainda. Digite /menu para ver os comandos disponíveis."); return; }
   if (text.startsWith("/nivel")) {
     const requested = Number(text.split(/\s+/)[1]);
     if (![1, 2, 3, 4].includes(requested)) {
@@ -776,6 +776,73 @@ function phraseFallback(message, profile) {
     profile.recentReplies = [...recent, selected].slice(-30);
     return selected;
   };
+
+  // Interpreta mensagens formadas apenas por emojis antes de cair na resposta genérica.
+  const emojiOnly = t.replace(/[\\p{Extended_Pictographic}\\uFE0F\\u200D\\s.,!?]/gu, "").length === 0;
+  if (emojiOnly && t) {
+    if (/[❤💕💞💓💗💖💘💝💟🩷🫶]/u.test(t)) return choose([
+      "ain, um coração pra mim? 💗🥹",
+      "que fofinho isso 🥺💞",
+      "te mando outro de volta 💗",
+      "hihi, entendi o carinho 🫶💖",
+      "ownn 💕 gostei desse coração",
+      "💗🥹"
+    ]);
+    if (/[😂🤣😹]/u.test(t)) return choose([
+      "KKKKKK do que tu tá rindo? 😂",
+      "mds KKKKKK 😭",
+      "tua risada me pegou KKKK 🤣",
+      "KKKKKK conta a fofoca 👀"
+    ]);
+    if (/[😭😢😿🥺😞😔💔]/u.test(t)) return choose([
+      "ei, aconteceu alguma coisa? 🥺💗",
+      "vem cá… quer me contar o que houve? 🫂",
+      "poxa 😔 tô te ouvindo, viu?",
+      "quer um pouquinho de carinho? 💗"
+    ]);
+    if (/[😍🥰😘😚😻💋]/u.test(t)) return choose([
+      "aaaa, assim tu me deixa sem graça 🙈💗",
+      "ownn, mandando carinho assim? 🥹💕",
+      "hehe, beijo pra ti também 😘",
+      "que fofooo 🥰💞"
+    ]);
+    if (/[👍👌🤝🙏🙌👏]/u.test(t)) return choose([
+      "fechouu 😌🤝",
+      "beleza, combinado 😊",
+      "entendiii 🙌",
+      "tamo junto 💗"
+    ]);
+    if (/[👋🖐️]/u.test(t)) return choose([
+      "oieee 👋💗",
+      "oii, cheguei hehe 😊",
+      "eae! Como tu tá? 🫶"
+    ]);
+    if (/[🔥💯✨⭐🌟]/u.test(t)) return choose([
+      "aí simmm 🔥😌",
+      "ficou brabo, né? ✨",
+      "hihi, energia boa 💗"
+    ]);
+    if (/[🤔🧐😶‍🌫️🙃😏]/u.test(t)) return choose([
+      "que foi essa carinha? KKKK 👀",
+      "tá pensando em quê? 🤨",
+      "hmmm, sei não hein 😏"
+    ]);
+    if (/[😡🤬😤]/u.test(t)) return choose([
+      "ihh, ficou bravinho? 😭 quer me contar?",
+      "opa, o que aconteceu? 😕",
+      "calmaaa, me conta o que pegou."
+    ]);
+    if (/[😊🙂😌🥹😎]/u.test(t)) return choose([
+      "hehe 😊💗",
+      "essa carinha significa que tá tudo bem? 🫶",
+      "gostei da energia 😌✨"
+    ]);
+    return choose([
+      "hihi, recebi teu emoji 😊💗",
+      "não sei se entendi a intenção ainda 😅 me conta?",
+      "👀💗"
+    ]);
+  }
 
   const facts = Array.isArray(profile.explicitFacts) ? profile.explicitFacts : [];
   if (/(pergunta|perguntar|pergunte|pergunta pra|pergunta para|perguntar pra|perguntar para).{0,80}(ela|ele|a menina|a garota|a pessoa).{0,80}(se (ela|ele) (t[aá]|est[aá]) bem|como (ela|ele) est[aá]|como (ela|ele) t[aá]|se (ela|ele) est[aá] tudo bem)/i.test(t) ||
