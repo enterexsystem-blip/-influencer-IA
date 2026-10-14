@@ -1507,6 +1507,15 @@ async function processTelegramUpdate(update) {
 const server = createServer(async (req, res) => {
   const requestUrl = new URL(req.url || "/", "http://localhost");
 
+  if (req.method === "GET" && requestUrl.pathname === "/") {
+    return send(res, 200, {
+      ok: true,
+      service: "influencer-ia-backend",
+      message: "Backend da Ayla online.",
+      endpoints: { health: "/health", diagnostics: "/diagnostics.json", dashboard: "/diagnostics", central: "/central" }
+    });
+  }
+
   if (req.method === "POST" && requestUrl.pathname === "/telegram/webhook") {
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_WEBHOOK_SECRET) return send(res, 503, { error: "Webhook do Telegram ainda não configurado." });
     const suppliedSecret = req.headers["x-telegram-bot-api-secret-token"];
@@ -1778,7 +1787,7 @@ const server = createServer(async (req, res) => {
     });
   }
 
-  if (req.method === "GET" && req.url === "/health") {
+  if (req.method === "GET" && requestUrl.pathname === "/health") {
     return send(res, 200, {
       ok: true,
       service: "influencer-ia-backend",
