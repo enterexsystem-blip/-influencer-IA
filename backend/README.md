@@ -78,6 +78,22 @@ Após salvar as variáveis, confirme em `/health` que `instagram.configured` apa
 - O webhook rejeita POSTs sem assinatura válida. A IA não deve alegar que é uma pessoa real; Ayla é uma personagem virtual.
 
 
+## Fish Audio — geração de voz da Ayla
+
+O endpoint autenticado `POST /tts/fish` envia o texto para a API oficial do Fish Audio e salva o MP3 em `media/audios/atualizacao/` no repositório GitHub. A chave permanece no ambiente do Render e nunca vai para o navegador ou para o repositório.
+
+Configure no Render:
+- `FISH_AUDIO_API_KEY`: chave da API do Fish Audio.
+- `FISH_AUDIO_REFERENCE_ID`: ID da voz da Ayla no Fish Audio.
+- `FISH_AUDIO_MODEL`: opcional; padrão `s2.1-pro`.
+
+Exemplo de corpo JSON para `POST /tts/fish`:
+```json
+{ "text": "[risadinha] Oii, Kyodai... hum, tudo bem?" }
+```
+
+O endpoint retorna o caminho salvo e uma URL de prévia. A API aceita marcadores expressivos inline, como `[risadinha]`, `[sussurro]` e `[ênfase]`. Isso não executa o botão de aprimoramento do site: para reproduzir exatamente essa função automática, é necessário confirmar qual botão/fluxo o site usa. A rota é protegida pela autenticação do Ayla Media Studio e limita o texto a 4.000 caracteres.
+
 ## Diagnóstico operacional da Ayla (Telegram)
 
 - `GET /diagnostics` ou `GET /status`: relatório JSON com configuração presente/ausente, uptime, estado do webhook, inventário básico de áudios, contadores de mensagens/respostas e até 20 erros recentes. Não retorna tokens nem IDs de usuários.
