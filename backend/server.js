@@ -591,7 +591,6 @@ async function deliverScheduledTelegramReply(job) {
       // Escolha equilibrada: uma resposta em texto OU uma em áudio.
       storedReply = Math.random() < 0.5 ? "__AYLA_AUDIO__" + storedReply : storedReply;
     }
-    const isBothReply = false;
     const isAudioReply = storedReply.startsWith("__AYLA_AUDIO__");
     const replyText = isAudioReply
       ? storedReply.slice("__AYLA_AUDIO__".length)
@@ -631,7 +630,7 @@ async function deliverScheduledTelegramReply(job) {
         } catch (audioError) {
           recordDiagnosticError("telegram.audio_send", audioError);
           console.error("Falha no envio do áudio da Ayla:", audioError?.message || "erro");
-          if (!isBothReply) {
+          {
             await sendTelegramText(chatId, replyText);
             runtimeDiagnostics.repliesSent += 1;
             runtimeDiagnostics.textFallbacks += 1;
@@ -658,7 +657,6 @@ async function deliverScheduledTelegramReply(job) {
 }
 async function scheduleTelegramReply(chatId, reply, sourceMessage, delayMs, responseMode = "texto") {
   const dueAt = new Date(Date.now() + delayMs);
-  // Em "ambos", manda sempre o texto e acrescenta um áudio compatível quando houver gravação.
   // "ambos" significa escolher um único formato por resposta, nunca enviar os dois.
   const storedReply = responseMode === "ambos"
     ? "__AYLA_CHOICE__" + String(reply || "")
