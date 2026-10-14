@@ -565,7 +565,8 @@ function aylaMenuKeyboard() {
     [{ text: "🕒 Tempo de resposta", callback_data: "ayla:timing" }, { text: "📊 Status", callback_data: "ayla:status" }],
     [{ text: "🖼️ Fotos dela", callback_data: "ayla:photos" }, { text: "👤 Foto de perfil", callback_data: "ayla:profile" }],
     [{ text: "🍜 Comida", callback_data: "ayla:food" }, { text: "👗 Looks", callback_data: "ayla:looks" }],
-    [{ text: "💋 Álbum VIP", callback_data: "ayla:vip" }, { text: "🎬 Atividades", callback_data: "ayla:activities" }]
+    [{ text: "💋 Álbum VIP", callback_data: "ayla:vip" }, { text: "🎬 Atividades", callback_data: "ayla:activities" }],
+    [{ text: "🗂️ AYLA MEDIA STUDIO · Biblioteca", url: "https://influencer-ia-backend.onrender.com/media-studio" }]
   ] };
 }
 async function editTelegramMessageText(chatId, messageId, text, replyMarkup = null) {
