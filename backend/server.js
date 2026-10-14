@@ -792,7 +792,20 @@ async function processTelegramUpdate(update) {
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
     recordDiagnosticError("telegram.generate_or_schedule", error);
     console.error("Falha ao gerar/agendar resposta da Ayla no Telegram:", telegramLastReplyError);
-    try { await sendTelegramText(chatId, "Tive um erro interno ao preparar minha resposta. O diagnóstico foi registrado; tenta de novo em alguns instantes."); } catch (sendError) {
+    const errorText = String(error?.message || "erro desconhecido");
+    let userNotice = "Não consegui preparar minha resposta agora. O sistema registrou o motivo para o criador verificar. Tenta de novo daqui a pouco.";
+    if (/\\b401\\b|unauthorized|invalid api key|api key not valid|authentication/i.test(errorText)) {
+      userNotice = "Não consegui responder porque o provedor de IA recusou a autenticação (erro 401). O criador precisa revisar a chave e o provedor configurados no servidor. Seus áudios não são a causa.";
+    } else if (/\\b429\\b|rate.?limit|quota|resource exhausted/i.test(errorText)) {
+      userNotice = "Não consegui responder porque o serviço de IA atingiu um limite de uso ou cota (erro 429). O criador precisa verificar a cota e os limites do provedor.";
+    } else if (/\\b5\\d\\d\\b|temporarily unavailable|internal server error|bad gateway/i.test(errorText)) {
+      userNotice = "Não consegui responder porque o serviço de IA apresentou uma falha temporária. O criador pode conferir os registros do servidor e tentar novamente.";
+    } else if (/timeout|timed out|aborterror|network|fetch failed|econnreset|enotfound/i.test(errorText)) {
+      userNotice = "Não consegui responder porque a conexão com um serviço necessário falhou ou demorou demais. O criador precisa verificar a conexão do servidor.";
+    } else if (/postgres|database|connection terminated|sql/i.test(errorText)) {
+      userNotice = "Não consegui acessar um componente de memória do sistema. O criador precisa verificar a conexão com o banco de dados.";
+    }
+    try { await sendTelegramText(chatId, userNotice); } catch (sendError) {
       recordDiagnosticError("telegram.error_notice", sendError);
     }
   }
