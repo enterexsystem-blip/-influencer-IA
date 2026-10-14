@@ -405,7 +405,49 @@ async function recoverScheduledTelegramReplies() {
   if (result.rows.length) console.log("Respostas agendadas recuperadas:", result.rows.length);
 }
 
+function aylaMenuKeyboard() {
+  return { inline_keyboard: [
+    [{ text: "🎙️ SOMENTE ÁUDIO ✓", callback_data: "ayla:audio" }],
+    [{ text: "🕒 Tempo de resposta", callback_data: "ayla:timing" }, { text: "📊 Status", callback_data: "ayla:status" }],
+    [{ text: "🖼️ Fotos dela", callback_data: "ayla:photos" }, { text: "👤 Foto de perfil", callback_data: "ayla:profile" }],
+    [{ text: "🍜 Comida", callback_data: "ayla:food" }, { text: "👗 Looks", callback_data: "ayla:looks" }],
+    [{ text: "💋 Álbum VIP", callback_data: "ayla:vip" }, { text: "🎬 Atividades", callback_data: "ayla:activities" }]
+  ] };
+}
+async function answerTelegramCallback(q) {
+  if (!q?.id || !q?.from?.id) return;
+  const id = String(q.from.id);
+  const chatId = q.message?.chat?.id;
+  const key = String(q.data || "");
+  let message = "Ayla";
+  if (key === "ayla:audio") {
+    const p = await loadProfile("telegram:" + id);
+    p.telegramMode = "audio"; await saveProfile("telegram:" + id, p);
+    message = "Somente áudio ativado. Sem MP3 compatível, silêncio.";
+  } else if (key === "ayla:timing") {
+    message = "Leio a mensagem primeiro; depois o status digitando acompanha o tamanho dela. /nivel 1 rápido, /nivel 2 demorado, /nivel 3 silêncio ocasional, /nivel 4 variável.";
+  } else if (key === "ayla:status") {
+    message = "Modo somente áudio. Memória: " + (dbReady ? "persistente" : "temporária sem banco configurado") + ".";
+  } else {
+    const folders = {
+      "ayla:photos":"media/images/ayla/fotos-dela/",
+      "ayla:profile":"media/images/ayla/perfil/",
+      "ayla:food":"media/images/ayla/comida/",
+      "ayla:looks":"media/images/ayla/looks/",
+      "ayla:vip":"media/images/ayla/vip/",
+      "ayla:activities":"media/images/ayla/atividades/"
+    };
+    message = "Pasta reservada: " + (folders[key] || "media/images/ayla/") + " Fotos entram quando forem adicionadas. Para mudar a foto pública do bot, use BotFather; a API do bot não altera a própria foto.";
+  }
+  await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+    method:"POST", headers:{"content-type":"application/json"},
+    body:JSON.stringify({callback_query_id:q.id,text:message.slice(0,190),show_alert:true}),
+    signal:AbortSignal.timeout(8000)
+  }).catch(()=>{});
+}
+
 async function processTelegramUpdate(update) {
+  if (update?.callback_query) { await answerTelegramCallback(update.callback_query); return; }
   const message = update?.message;
   const senderId = String(message?.from?.id || "");
   const chatId = message?.chat?.id;
@@ -415,17 +457,20 @@ async function processTelegramUpdate(update) {
   const isKyodai = Boolean(KYODAI_TELEGRAM_USER_ID && senderId === KYODAI_TELEGRAM_USER_ID);
   if (text === "/id") { await sendTelegramText(chatId, "Seu ID numérico do Telegram é: " + senderId + "\nGuarde esse número e cadastre no Render em KYODAI_TELEGRAM_USER_ID. Não é um token secreto."); return; }
   if (text === "/start" || text.startsWith("/start ")) {
-    await sendTelegramText(chatId, "Oii, eu sou a Ayla 💗 Pode conversar comigo por aqui! Digite /menu para ver meus comandos.");
+    const profile = await loadProfile(userId);
+    profile.telegramMode = "audio";
+    await saveProfile(userId, profile);
+    await sendTelegramText(chatId, "Oii, Kyodai 💗 Eu sou a Ayla. Minhas respostas de conversa serão somente em áudio. Usa /menu para abrir os controles.", aylaMenuKeyboard());
     return;
   }
   if (text === "/menu" || text === "/ajuda" || text === "/help") {
-    await sendTelegramText(chatId, "💗 MENU DA AYLA\n\n/start — iniciar conversa\n/menu — ver comandos\n/id — mostrar seu ID numérico\n/modo texto — responder por escrito\n/modo audio — preferir áudio (biblioteca ainda precisa ser adicionada)\n/modo ambos — 50% texto e 50% áudio; sem MP3 compatível no sorteio de áudio, fico em silêncio\n/status — ver configurações atuais\n/nivel 1 — responder em segundos\n/nivel 2 — demorar de 1 minuto a 1 hora\n/nivel 3 — poder não responder\n/nivel 4 — variar entre os três níveis\n\nPode conversar comigo normalmente a qualquer momento.");
+    await sendTelegramText(chatId, "💗 AYLA · CENTRAL DE CONTROLE\\n\\nEscolhe uma opção abaixo. Conversas: somente áudio. Se não houver gravação compatível, ela fica em silêncio.", aylaMenuKeyboard());
     return;
   }
   if (text === "/status") {
     const profile = await loadProfile(userId);
-    const mode = ["texto","audio","ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
-    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: envio apenas quando o MP3 compatível estiver instalado; sem gravação compatível, não envio resposta.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
+    const mode = "audio";
+    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: envio somente de MP3 compatível; sem gravação, silêncio.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
     return;
   }
   if (text.startsWith("/chamar")) {
@@ -451,12 +496,12 @@ async function processTelegramUpdate(update) {
     return;
   }
   if (text.startsWith("/modo")) {
-    const requestedMode = text.split(/\s+/)[1]?.toLocaleLowerCase("pt-BR");
-    if (!["texto","audio","ambos"].includes(requestedMode)) { await sendTelegramText(chatId, "Use assim: /modo texto, /modo audio ou /modo ambos."); return; }
+    const requestedMode = "audio";
+    if (requestedMode !== "audio") { await sendTelegramText(chatId, "A Ayla está configurada para responder somente em áudio. Use /modo audio."); return; }
     const profile = await loadProfile(userId);
     profile.telegramMode = requestedMode;
     await saveProfile(userId, profile);
-    const note = requestedMode === "texto" ? "Vou responder por escrito." : requestedMode === "audio" ? "Modo áudio salvo. Só envio áudio se houver uma gravação compatível instalada; se não houver, fico em silêncio." : "Modo misto salvo: 50% de chance de texto e 50% de áudio. Se cair em áudio e não houver gravação compatível instalada, fico em silêncio.";
+    const note = "Modo somente áudio salvo. Sem gravação compatível, fico em silêncio.";
     await sendTelegramText(chatId, "Prontinho 💗 " + note);
     return;
   }
@@ -522,7 +567,7 @@ async function processTelegramUpdate(update) {
   } catch (error) {
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
     console.error("Falha ao gerar resposta da Ayla no Telegram:", telegramLastReplyError);
-    await sendTelegramText(chatId, "Ai, tive um probleminha para formular a resposta agora 😕 Tenta me mandar de novo daqui a pouquinho.");
+    console.error("Ayla manteve silêncio: erro ao preparar resposta em áudio.");
   }
 }
 const server = createServer(async (req, res) => {
