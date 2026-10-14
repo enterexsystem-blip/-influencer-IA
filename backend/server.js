@@ -1001,7 +1001,7 @@ async function processTelegramUpdate(update) {
     const configuredLevel = Number(profile.telegramReplyLevel || 4);
     const level = isKyodai ? 1 : chooseTelegramLevel(profile);
     const normalizedIncoming = text.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLocaleLowerCase("pt-BR");
-    const creatorQuestion = /\\b(quem (e|eh) (o )?seu criador|quem te criou|quem e seu criador|quem criou voce|quem criou a ayla|quem desenvolveu voce|quem fez voce|quem e o criador)\\b/.test(normalizedIncoming);
+    const creatorQuestion = /\\b(quem (e|eh) (o )?(seu criador|criador dela|criador da ayla)|quem te criou|quem e seu criador|quem criou voce|quem criou a ayla|quem desenvolveu voce|quem fez voce|quem e o criador)\\b/.test(normalizedIncoming);
     const reply = creatorQuestion
       ? "Meu criador é o Kyodai, que desenvolve o projeto Enterex. Eu sou a Ayla Logic Enterex, a assistente virtual criada para conversar contigo, senhor. 💗"
       : await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
