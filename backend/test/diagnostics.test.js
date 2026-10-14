@@ -18,7 +18,7 @@ test("diagnostics endpoint and Telegram status command exist", async () => {
 
 test("audio response modes and text fallback exist", async () => {
   const source = await readFile(serverPath, "utf8");
-  assert.ok(source.includes("__AYLA_BOTH__"));
+  assert.ok(source.includes("__AYLA_CHOICE__"));
   assert.ok(source.includes("__AYLA_AUDIO__"));
   assert.ok(source.includes("textFallbacks"));
   assert.ok(source.includes("runtimeDiagnostics.audioSent"));
@@ -36,7 +36,7 @@ test("audio directory contains non-document files of plausible size", async () =
 });
 
 test("audio catalog is valid JSON with categories", async () => {
-  const catalogPath = join(root, "..", "media", "audios", "catalog.json");
+  const catalogPath = join(root, "..", "media", "audios", "Ayla Logic Enterex - catalog.json");
   const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
   assert.ok(catalog.categories && typeof catalog.categories === "object");
   assert.ok(Object.keys(catalog.categories).length >= 4);
