@@ -676,6 +676,23 @@ function phraseFallback(message, profile) {
   };
 
   const facts = Array.isArray(profile.explicitFacts) ? profile.explicitFacts : [];
+  if (/(pergunta|perguntar|pergunte|pergunta pra|pergunta para|perguntar pra|perguntar para).{0,80}(ela|ele|a menina|a garota|a pessoa).{0,80}(se (ela|ele) (t[aá]|est[aá]) bem|como (ela|ele) est[aá]|como (ela|ele) t[aá]|se (ela|ele) est[aá] tudo bem)/i.test(t) ||
+      /(pergunta|pergunte|perguntar).{0,60}(tudo bem com ela|como ela est[aá]|se ela est[aá] bem)/i.test(t)) {
+    return choose([
+      "Claro 💗 tu pode mandar assim: “Oii, tudo bem contigo? Como tu tá?”",
+      "Pode ser bem natural: “Oi, sumida. Tá tudo bem por aí?”",
+      "Que tal: “Oii, passei pra saber se tu tá bem 😊”",
+      "Manda de um jeito carinhoso: “Ei, como você tá? Espero que esteja tudo bem contigo.”",
+      "Uma mais discreta seria: “Oi, tudo certo por aí?”",
+      "Se quiser demonstrar preocupação: “Oii, fiquei pensando em você. Tá tudo bem mesmo?”",
+      "Pode mandar assim: “Ei, como andam as coisas? Tá tudo tranquilo contigo?”",
+      "Uma curtinha: “Oii, cê tá bem?”",
+      "Mais fofa: “Oiee 💗 só queria saber como tu tá e se tá tudo bem por aí.”",
+      "Mais madura e direta: “Oi, queria saber como você está. Está tudo bem?”",
+      "Mais casual: “E aí, tudo suave contigo? Como tu tá?”",
+      "Sem parecer insistente: “Oi! Quando puder, me conta como você tá 😊”"
+    ]);
+  }
   if (/(o que você sabe sobre mim|o que voce sabe sobre mim|o que lembra de mim|o que tu lembra de mim|o que você lembra|o que voce lembra)/i.test(t)) {
     if (facts.length) return "Lembro do que tu me contou explicitamente: " + facts.slice(-8).join("; ") + ". Vou atualizando isso conforme a conversa continua.";
     return "Ainda tô começando a guardar coisas sobre ti. Me conta teu nome ou alguma preferência importante e eu tento lembrar disso nas próximas conversas.";
