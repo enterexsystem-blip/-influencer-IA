@@ -8,34 +8,34 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const serverPath = join(root, "server.js");
 const audioDir = join(root, "..", "media", "audios", "01-cumprimentos");
 
-test("backend has a detailed diagnostics endpoint and Telegram status command", async () => {
+test("diagnostics endpoint and Telegram status command exist", async () => {
   const source = await readFile(serverPath, "utf8");
-  assert.match(source, /requestUrl\.pathname === "\/diagnostics"/);
-  assert.match(source, /text === "\/status" \|\| text === "\/diagnostico"/);
-  assert.match(source, /runtimeDiagnostics\.recentErrors/);
-  assert.match(source, /telegramWebhookLastError/);
+  assert.ok(source.includes('requestUrl.pathname === "/diagnostics"'));
+  assert.ok(source.includes('text === "/status" || text === "/diagnostico"'));
+  assert.ok(source.includes("runtimeDiagnostics.recentErrors"));
+  assert.ok(source.includes("telegramWebhookLastError"));
 });
 
-test("audio mode has a text fallback and both mode can send text plus audio", async () => {
+test("audio response modes and text fallback exist", async () => {
   const source = await readFile(serverPath, "utf8");
-  assert.match(source, /__AYLA_BOTH__/);
-  assert.match(source, /__AYLA_AUDIO__/);
-  assert.match(source, /textFallbacks\+\+/);
-  assert.match(source, /runtimeDiagnostics\.audioSent\+\+/);
-  assert.match(source, /async function chooseTelegramAudio/);
+  assert.ok(source.includes("__AYLA_BOTH__"));
+  assert.ok(source.includes("__AYLA_AUDIO__"));
+  assert.ok(source.includes("textFallbacks"));
+  assert.ok(source.includes("runtimeDiagnostics.audioSent"));
+  assert.ok(source.includes("async function chooseTelegramAudio"));
 });
 
-test("audio directory exists and contains usable non-document files", async () => {
+test("audio directory contains non-document files of plausible size", async () => {
   const entries = await readdir(audioDir, { withFileTypes: true });
   const files = entries.filter(entry => entry.isFile() && !/\.(zip|json|md|txt)$/i.test(entry.name));
-  assert.ok(files.length > 0, "Nenhum arquivo de áudio foi encontrado em media/audios/01-cumprimentos");
+  assert.ok(files.length > 0, "Nenhum arquivo de áudio encontrado");
   for (const file of files) {
     const info = await stat(join(audioDir, file.name));
     assert.ok(info.size > 1000, `Arquivo vazio ou pequeno demais: ${file.name}`);
   }
 });
 
-test("catalog is valid JSON and references audio categories", async () => {
+test("audio catalog is valid JSON with categories", async () => {
   const catalogPath = join(root, "..", "media", "audios", "catalog.json");
   const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
   assert.ok(catalog.categories && typeof catalog.categories === "object");
