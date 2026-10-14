@@ -230,13 +230,13 @@ async function chooseTelegramAudio(sourceMessage, reply) {
 
   // Os áudios enviados ao repositório não têm extensão. Ignoramos ZIPs e arquivos de documentação.
   const audioFiles = files
-    .filter(file => file.isFile() && !/\\.(zip|json|md|txt)$/i.test(file.name))
+    .filter(file => file.isFile() && !/\.(zip|json|md|txt)$/i.test(file.name))
     .map(file => file.name)
     .filter(name => !/(bucet|me-fode|machuca-minha|sexo)/i.test(name));
 
   if (!audioFiles.length) return null;
   const normalize = value => String(value || "")
-    .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, " ").trim();
   const source = normalize(sourceMessage);
   const answer = normalize(reply);
@@ -246,8 +246,8 @@ async function chooseTelegramAudio(sourceMessage, reply) {
     return "01-cumprimentos/" + matches[Math.floor(Math.random() * matches.length)];
   };
 
-  if (/^(oi+|ola+|oie+|e ai|eae|opa+|salve|bom dia|boa tarde|boa noite|hey|hi|hello)\\b/.test(source)) {
-    return choose(/\\b(oi+|ola+|oie+|opa+|salve)\\b/);
+  if (/^(oi+|ola+|oie+|e ai|eae|opa+|salve|bom dia|boa tarde|boa noite|hey|hi|hello)\b/.test(source)) {
+    return choose(/\b(oi+|ola+|oie+|opa+|salve)\b/);
   }
   if (/(tudo bem|como (tu|voce) ta|como ce ta|como vai)/.test(source)) {
     return choose(/estou bem|tudo bem no que posso ajudar/);
@@ -297,7 +297,7 @@ async function sendTelegramAudio(chatId, relativePath) {
     const form = new FormData();
     form.append("chat_id", String(chatId));
     const uploadName = relativePath.split("/").pop();
-    form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), /\\.[a-z0-9]{2,5}$/i.test(uploadName) ? uploadName : uploadName + ".mp3");
+    form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), /\.[a-z0-9]{2,5}$/i.test(uploadName) ? uploadName : uploadName + ".mp3");
     response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
       method: "POST",
       body: form,
