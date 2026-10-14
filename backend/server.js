@@ -218,7 +218,7 @@ async function sendTelegramText(chatId, text) {
 function chooseTelegramAudio(sourceMessage, reply) {
   const source = String(sourceMessage || "").toLocaleLowerCase("pt-BR");
   const answer = String(reply || "").toLocaleLowerCase("pt-BR");
-  if (/^(oi+|ol[aá]|eae|eai|opa|salve|bom dia|boa tarde|boa noite)[!.?\\s]*$/.test(source)) {
+  if (/^(oi+|ol[aá]|eae|eai|opa|salve|bom dia|boa tarde|boa noite)[!.?\s]*$/.test(source)) {
     const greetings = [
       "01-cumprimentos/oi_animado.mp3",
       "01-cumprimentos/oi_enfatizado.mp3",
@@ -405,13 +405,13 @@ async function processTelegramUpdate(update) {
     return;
   }
   if (text === "/menu" || text === "/ajuda" || text === "/help") {
-    await sendTelegramText(chatId, "💗 MENU DA AYLA\n\n/start — iniciar conversa\n/menu — ver comandos\n/id — mostrar seu ID numérico\n/modo texto — responder por escrito\n/modo audio — preferir áudio (biblioteca ainda precisa ser adicionada)\n/modo ambos — texto e áudio (biblioteca ainda precisa ser adicionada)\n/status — ver configurações atuais\n/nivel 1 — responder em segundos\n/nivel 2 — demorar de 1 minuto a 1 hora\n/nivel 3 — poder não responder\n/nivel 4 — variar entre os três níveis\n\nPode conversar comigo normalmente a qualquer momento.");
+    await sendTelegramText(chatId, "💗 MENU DA AYLA\n\n/start — iniciar conversa\n/menu — ver comandos\n/id — mostrar seu ID numérico\n/modo texto — responder por escrito\n/modo audio — preferir áudio (biblioteca ainda precisa ser adicionada)\n/modo ambos — 50% texto e 50% áudio; sem MP3 compatível no sorteio de áudio, fico em silêncio\n/status — ver configurações atuais\n/nivel 1 — responder em segundos\n/nivel 2 — demorar de 1 minuto a 1 hora\n/nivel 3 — poder não responder\n/nivel 4 — variar entre os três níveis\n\nPode conversar comigo normalmente a qualquer momento.");
     return;
   }
   if (text === "/status") {
     const profile = await loadProfile(userId);
     const mode = ["texto","audio","ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
-    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: ainda não disponíveis no backend; aguardando os arquivos.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
+    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: envio apenas quando o MP3 compatível estiver instalado; sem gravação compatível, não envio resposta.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
     return;
   }
   if (text.startsWith("/modo")) {
@@ -420,7 +420,7 @@ async function processTelegramUpdate(update) {
     const profile = await loadProfile(userId);
     profile.telegramMode = requestedMode;
     await saveProfile(userId, profile);
-    const note = requestedMode === "texto" ? "Vou responder por escrito." : requestedMode === "audio" ? "Preferência por áudio salva. Enquanto a biblioteca de áudios não for adicionada, vou responder por texto para não te deixar sem resposta." : "Preferência por texto e áudio salva. Por enquanto enviarei texto; os áudios entram quando os arquivos forem adicionados e integrados.";
+    const note = requestedMode === "texto" ? "Vou responder por escrito." : requestedMode === "audio" ? "Modo áudio salvo. Só envio áudio se houver uma gravação compatível instalada; se não houver, fico em silêncio." : "Modo misto salvo: 50% de chance de texto e 50% de áudio. Se cair em áudio e não houver gravação compatível instalada, fico em silêncio.";
     await sendTelegramText(chatId, "Prontinho 💗 " + note);
     return;
   }
