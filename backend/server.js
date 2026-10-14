@@ -449,13 +449,13 @@ async function processTelegramUpdate(update) {
   try {
     const profile = await loadProfile(userId);
     const configuredLevel = Number(profile.telegramReplyLevel || 4);
-    const level = chooseTelegramLevel(profile);
+    const level = isKyodai ? 1 : chooseTelegramLevel(profile);
     const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
     if (level === 3) {
       console.log("Ayla escolheu não responder a esta mensagem (nível 3).");
       return;
     }
-    const delay = chooseTelegramDelay(text, level);
+    const delay = isKyodai ? 250 : chooseTelegramDelay(text, level);
     const responseMode = ["texto", "audio", "ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
     await scheduleTelegramReply(chatId, reply, text, delay, responseMode);
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
