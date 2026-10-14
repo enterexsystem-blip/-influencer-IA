@@ -806,7 +806,18 @@ const server = createServer(async (req, res) => {
     }
   }
 
-  if (req.method === "GET" && (requestUrl.pathname === "/diagnostics" || requestUrl.pathname === "/status")) {
+  if (req.method === "GET" && requestUrl.pathname === "/diagnostics") {
+    try {
+      const html = await readFile(join(BACKEND_DIR, "diagnostics.html"), "utf8");
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      return res.end(html);
+    } catch (error) {
+      recordDiagnosticError("diagnostics.dashboard", error);
+      return send(res, 500, { error: "Painel de diagnóstico indisponível. Tente /diagnostics.json." });
+    }
+  }
+
+  if (req.method === "GET" && (requestUrl.pathname === "/diagnostics.json" || requestUrl.pathname === "/status")) {
     const audio = await getAudioInventory();
     return send(res, 200, {
       ok: !runtimeDiagnostics.lastError,
