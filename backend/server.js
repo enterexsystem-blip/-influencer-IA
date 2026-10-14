@@ -12,6 +12,14 @@ const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, proc
 const API_KEY = KEY_CANDIDATES.find(key => key.startsWith("sk-or-v1-")) || KEY_CANDIDATES[0] || "";
 const PROVIDER = API_KEY.startsWith("sk-or-v1-") ? "openrouter" : (process.env.AI_PROVIDER || "gemini").toLowerCase();
 const MODEL = process.env.AI_MODEL || (PROVIDER === "openrouter" ? "openrouter/free" : process.env.GEMINI_MODEL || "gemini-2.5-flash-lite");
+const AI_PROVIDERS = {
+  gemini: { key: process.env.GEMINI_API_KEY?.trim() || (PROVIDER === "gemini" ? API_KEY : ""), model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite" },
+  openrouter: { key: process.env.OPENROUTER_API_KEY?.trim() || (PROVIDER === "openrouter" ? API_KEY : ""), model: process.env.OPENROUTER_MODEL || "openrouter/free" },
+  groq: { key: process.env.GROQ_API_KEY?.trim() || "", model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile" }
+};
+let activeAIProvider = PROVIDER;
+const pendingFailovers = new Map();
+const failoverTimers = new Map();
 const localProfiles = new Map();
 let pool = null;
 let dbReady = false;
@@ -200,44 +208,34 @@ async function generateAylaReply(message, userId, extraInstructions = "") {
   await saveProfile(userId, profile);
   const learnedStyle = profileSummary(profile);
   const learnedContext = conversationContext(profile, message);
-  if (!API_KEY) return phraseFallbackAndSave(message, profile, userId);
+  const active = AI_PROVIDERS[activeAIProvider] || AI_PROVIDERS[PROVIDER];
+  if (!active?.key) throw new Error("Nenhuma chave configurada para o provedor ativo: " + activeAIProvider);
+  const activeProvider = activeAIProvider;
+  const activeKey = active.key;
+  const activeModel = active.model;
   let upstream;
   let data;
-  if (PROVIDER === "openrouter") {
-    upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Ayla - Influencer IA" },
-      body: JSON.stringify({ model: MODEL, messages: [
-        { role: "system", content: `${persona}\n\n${extraInstructions}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` },
-        { role: "user", content: message }
-      ], temperature: 0.8, max_tokens: 300 }),
-      signal: AbortSignal.timeout(25_000)
-    });
+  const systemText = `${persona}\n\n${extraInstructions}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.`;
+  if (activeProvider === "openrouter" || activeProvider === "groq") {
+    const endpoint = activeProvider === "openrouter" ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
+    const headers = { "content-type": "application/json", "authorization": `Bearer ${activeKey}` };
+    if (activeProvider === "openrouter") {
+      headers["http-referer"] = "https://github.com/enterexsystem-blip/-influencer-IA";
+      headers["x-title"] = "Ayla - Influencer IA";
+    }
+    upstream = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify({ model: activeModel, messages: [{ role: "system", content: systemText }, { role: "user", content: message }], temperature: 0.8, max_tokens: 300 }), signal: AbortSignal.timeout(25_000) });
     data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}: ${String(data.error?.message || data.message || data.error?.code || "erro sem detalhes").slice(0, 240)}`);
+    if (!upstream.ok) throw new Error(`Provedor de IA ${activeProvider} respondeu com status ${upstream.status}: ${String(data.error?.message || data.message || data.error?.code || "erro sem detalhes").slice(0, 240)}`);
     const generated = data.choices?.[0]?.message?.content?.trim() || "";
     const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
-    rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() });
-    await saveProfile(userId, profile);
-    return reply;
+    rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() }); await saveProfile(userId, profile); return reply;
   }
-  upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": API_KEY },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: `${persona}\n\n${extraInstructions}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` }] },
-      contents: [{ role: "user", parts: [{ text: message }] }],
-      generationConfig: { temperature: 0.8, maxOutputTokens: 300 }
-    }),
-    signal: AbortSignal.timeout(25_000)
-  });
+  upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(activeModel)}:generateContent`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": activeKey }, body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents: [{ role: "user", parts: [{ text: message }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 300 } }), signal: AbortSignal.timeout(25_000) });
   data = await upstream.json().catch(() => ({}));
-  if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
+  if (!upstream.ok) throw new Error(`Provedor de IA gemini respondeu com status ${upstream.status}: ${String(data.error?.message || data.error?.status || "erro sem detalhes").slice(0, 240)}`);
   const generated = data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || "";
   const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
-  rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() });
-  await saveProfile(userId, profile);
-  return reply;
+  rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() }); await saveProfile(userId, profile); return reply;
 }
 
 async function sendInstagramText(recipientId, text) {
@@ -595,11 +593,86 @@ function aylaMenuKeyboard() {
     [{ text: "💋 Álbum VIP", callback_data: "ayla:vip" }, { text: "🎬 Atividades", callback_data: "ayla:activities" }]
   ] };
 }
+async function editTelegramMessageText(chatId, messageId, text, replyMarkup = null) {
+  const payload = { chat_id: chatId, message_id: messageId, text: String(text).slice(0, 3900) };
+  if (replyMarkup) payload.reply_markup = replyMarkup;
+  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/editMessageText", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(10000) });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true) throw new Error("Não consegui atualizar a contagem no Telegram: " + String(data.description || response.status).slice(0, 150));
+}
+function availableFailoverProviders() {
+  return ["gemini", "openrouter", "groq"].filter(name => name !== activeAIProvider && Boolean(AI_PROVIDERS[name]?.key));
+}
+async function startFailoverCountdown(pending, callbackMessage) {
+  const alternatives = availableFailoverProviders();
+  if (!alternatives.length) {
+    await editTelegramMessageText(pending.chatId, pending.messageId, "Ayla • Não encontrei outro provedor configurado. Para ativar contingência, configure chaves separadas para GEMINI_API_KEY, OPENROUTER_API_KEY e GROQ_API_KEY no Render.", { inline_keyboard: [[{ text: "🩺 Abrir diagnóstico", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]] });
+    return;
+  }
+  const target = alternatives[0];
+  const waitMs = 60_000 + Math.floor(Math.random() * 9 * 60_000);
+  const state = { ...pending, target, dueAt: Date.now() + waitMs, messageId: pending.messageId, chatId: pending.chatId };
+  pendingFailovers.set(String(pending.creatorId), state);
+  const render = async () => {
+    const current = pendingFailovers.get(String(state.creatorId));
+    if (!current || current !== state) return;
+    const left = Math.max(0, state.dueAt - Date.now());
+    if (left > 0) {
+      const minutes = Math.floor(left / 60000);
+      const seconds = Math.floor((left % 60000) / 1000);
+      try { await editTelegramMessageText(state.chatId, state.messageId, "🩺 AYLA • CONTINGÊNCIA AUTORIZADA\n\nVou tentar conectar ao provedor alternativo " + state.target + " em " + minutes + "m " + String(seconds).padStart(2,"0") + "s. Minha personalidade e memória ficam no mesmo sistema.\n\nSe quiser interromper, use o botão abaixo.", { inline_keyboard: [[{ text: "⏳ Conexão em " + minutes + ":" + String(seconds).padStart(2,"0"), callback_data: "failover:wait" }], [{ text: "✖ Cancelar troca", callback_data: "failover:cancel" }, { text: "🩺 Diagnóstico", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]] }); } catch {}
+      const timer = setTimeout(render, Math.min(15000, left));
+      failoverTimers.set(String(state.creatorId), timer);
+      return;
+    }
+    pendingFailovers.delete(String(state.creatorId));
+    failoverTimers.delete(String(state.creatorId));
+    activeAIProvider = state.target;
+    try {
+      const reply = await generateAylaReply(state.sourceText, "telegram:" + state.creatorId, state.extraInstructions || "");
+      await sendTelegramText(state.chatId, "💗 Consegui conectar ao provedor " + state.target + ". Vou responder sua mensagem agora:\n\n" + reply);
+      await editTelegramMessageText(state.chatId, state.messageId, "✅ AYLA • Conexão alternativa concluída\nProvedor ativo: " + state.target + "\nA personalidade e a memória da Ayla foram mantidas.", { inline_keyboard: [[{ text: "🩺 Abrir diagnóstico", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]] });
+    } catch (error) {
+      recordDiagnosticError("telegram.failover_connect", error);
+      await editTelegramMessageText(state.chatId, state.messageId, "⚠️ Ayla • A tentativa de conexão com " + state.target + " também falhou. Não vou trocar novamente sem sua autorização. Confira o diagnóstico.", { inline_keyboard: [[{ text: "🩺 Abrir diagnóstico", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]] });
+    }
+  };
+  await render();
+}
 async function answerTelegramCallback(q) {
   if (!q?.id || !q?.from?.id) return;
   const id = String(q.from.id);
   const chatId = q.message?.chat?.id;
   const key = String(q.data || "");
+  if (key.startsWith("failover:")) {
+    if (id !== KYODAI_TELEGRAM_USER_ID) {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Só o criador pode autorizar a troca.",show_alert:true}) }).catch(()=>{});
+      return;
+    }
+    const pending = pendingFailovers.get(id);
+    if (key === "failover:approve" && pending) {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Autorizado. Vou iniciar a contagem regressiva."}) }).catch(()=>{});
+      pending.messageId = q.message?.message_id || pending.messageId;
+      pending.chatId = chatId || pending.chatId;
+      await startFailoverCountdown(pending);
+      return;
+    }
+    if (key === "failover:deny" && pending) {
+      pendingFailovers.delete(id);
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Entendido. Não vou trocar de provedor."}) }).catch(()=>{});
+      await editTelegramMessageText(chatId, q.message?.message_id, "💗 Entendido, Kyodai. Vou permanecer no provedor atual. Não farei a troca sem sua autorização.", { inline_keyboard: [[{ text: "🩺 Abrir diagnóstico", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]] });
+      return;
+    }
+    if (key === "failover:cancel") {
+      const timer = failoverTimers.get(id); if (timer) clearTimeout(timer);
+      failoverTimers.delete(id); pendingFailovers.delete(id);
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Troca cancelada."}) }).catch(()=>{});
+      await editTelegramMessageText(chatId, q.message?.message_id, "✖ Troca cancelada. Permaneci no provedor atual.", { inline_keyboard: [[{ text: "🩺 Abrir diagnóstico", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]] });
+      return;
+    }
+    await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"A contagem está em andamento."}) }).catch(()=>{});
+    return;
+  }
   let message = "Ayla";
   if (key === "ayla:audio" || key === "ayla:text") {
     const p = await loadProfile("telegram:" + id);
@@ -890,6 +963,23 @@ async function processTelegramUpdate(update) {
       await sendTelegramText(chatId, userNotice, {
         inline_keyboard: [[{ text: "🩺 Abrir diagnóstico da Ayla", url: diagnosticUrl }]]
       });
+      if (isKyodai) {
+        const alternatives = availableFailoverProviders();
+        if (alternatives.length) {
+          const requestText = userNotice + "\\n\\nKyodai, encontrei um provedor alternativo disponível: " + alternatives[0] + ". Posso iniciar a troca? A contagem de 1 a 10 minutos só começa depois que você autorizar. Minha personalidade e memória continuam no mesmo sistema.";
+          const sent = await sendTelegramText(chatId, requestText, { inline_keyboard: [
+            [{ text: "🔌 Autorizar troca", callback_data: "failover:approve" }, { text: "Não, permanecer", callback_data: "failover:deny" }],
+            [{ text: "🩺 Abrir diagnóstico", url: diagnosticUrl }]
+          ] });
+          const state = { creatorId: senderId, chatId, messageId: null, sourceText: text, extraInstructions: "" };
+          pendingFailovers.set(senderId, state);
+          // A mensagem de autorização é a última enviada; guardar o message_id é necessário para editar a contagem.
+          try {
+            const recent = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/getUpdates", { signal: AbortSignal.timeout(4000) });
+            void recent;
+          } catch {}
+        }
+      }
     } catch (sendError) {
       recordDiagnosticError("telegram.error_notice", sendError);
     }
