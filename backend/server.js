@@ -1682,6 +1682,43 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && (requestUrl.pathname === "/diagnostics.json" || requestUrl.pathname === "/status")) {
     const audio = await getAudioInventory();
+    // Teste ativo da API do Telegram: o diagnóstico não depende apenas de flags locais.
+    let telegramProbe = {
+      checked: false,
+      apiOk: false,
+      webhookUrl: null,
+      pendingUpdates: null,
+      lastDeliveryError: null,
+      lastDeliveryErrorAt: null,
+      error: null,
+      urlMatchesConfiguration: null
+    };
+    if (TELEGRAM_BOT_TOKEN) {
+      telegramProbe.checked = true;
+      try {
+        const probeResponse = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/getWebhookInfo", {
+          signal: AbortSignal.timeout(8000)
+        });
+        const probeData = await probeResponse.json().catch(() => ({}));
+        if (!probeResponse.ok || probeData.ok !== true) {
+          telegramProbe.error = String(probeData.description || ("Telegram HTTP " + probeResponse.status)).slice(0, 250);
+        } else {
+          const info = probeData.result || {};
+          telegramProbe.apiOk = true;
+          telegramProbe.webhookUrl = info.url || "";
+          telegramProbe.pendingUpdates = Number.isFinite(info.pending_update_count) ? info.pending_update_count : 0;
+          telegramProbe.lastDeliveryError = info.last_error_message ? String(info.last_error_message).slice(0, 300) : null;
+          telegramProbe.lastDeliveryErrorAt = info.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : null;
+          telegramProbe.urlMatchesConfiguration = TELEGRAM_WEBHOOK_BASE_URL
+            ? info.url === TELEGRAM_WEBHOOK_BASE_URL + "/telegram/webhook"
+            : null;
+        }
+      } catch (error) {
+        telegramProbe.error = String(error?.message || "Falha ao consultar a API do Telegram").slice(0, 250);
+      }
+    } else {
+      telegramProbe.error = "TELEGRAM_BOT_TOKEN não configurado.";
+    }
     return send(res, 200, {
       ok: !runtimeDiagnostics.lastError,
       service: "influencer-ia-backend",
@@ -1710,13 +1747,14 @@ const server = createServer(async (req, res) => {
         telegramWebhookSecretConfigured: Boolean(TELEGRAM_WEBHOOK_SECRET),
         telegramWebhookBaseUrlConfigured: Boolean(TELEGRAM_WEBHOOK_BASE_URL),
         telegramWebhookRegistered,
+        telegramProbe,
         instagramConfigured: Boolean(INSTAGRAM_ACCOUNT_ID && INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_APP_SECRET && INSTAGRAM_VERIFY_TOKEN)
       },
       audio,
       counters: runtimeDiagnostics,
       checks: [
         { id: "telegram-token", area: "Telegram", label: "Token configurado", status: TELEGRAM_BOT_TOKEN ? "ok" : "error", detail: TELEGRAM_BOT_TOKEN ? "A variável existe; a validade real depende de uma chamada à API." : "Configure TELEGRAM_BOT_TOKEN no ambiente do servidor." },
-        { id: "telegram-webhook", area: "Telegram", label: "Webhook registrado", status: telegramWebhookRegistered ? "ok" : "warning", detail: telegramWebhookRegistered ? "O processo marcou o webhook como registrado." : (telegramWebhookLastError || "O registro ainda não foi confirmado por este processo.") },
+        { id: "telegram-webhook", area: "Telegram", label: "Webhook registrado", status: telegramProbe.apiOk && telegramProbe.urlMatchesConfiguration === true && !telegramProbe.lastDeliveryError ? "ok" : "warning", detail: !telegramProbe.apiOk ? (telegramProbe.error || telegramWebhookLastError || "Não foi possível consultar a API do Telegram.") : (!telegramProbe.webhookUrl ? "O Telegram não tem webhook registrado." : (telegramProbe.urlMatchesConfiguration === false ? "A URL registrada no Telegram é diferente da URL configurada no Render." : (telegramProbe.lastDeliveryError || ("Webhook do Telegram consultado; atualizações pendentes: " + telegramProbe.pendingUpdates + ".")))) },
         { id: "ai-key", area: "IA", label: "Chave de IA presente", status: API_KEY ? "ok" : "warning", detail: API_KEY ? "A chave está presente, mas isso não confirma autenticação; valide com uma requisição real." : "Sem chave configurada: respostas podem usar apenas frases locais." },
         { id: "database", area: "Memória", label: "Banco persistente", status: dbReady ? "ok" : "warning", detail: dbReady ? "A conexão PostgreSQL foi inicializada." : "A memória pode ser temporária e se perder ao reiniciar o processo." },
         { id: "audio-folder", area: "Áudio", label: "Pasta de áudios", status: (await getAudioInventory()).directoryExists ? "ok" : "error", detail: (await getAudioInventory()).directoryExists ? "A pasta de áudios foi localizada no deploy." : "A pasta de áudios não foi localizada no caminho esperado." },
