@@ -23,6 +23,7 @@ const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || "
 const TELEGRAM_WEBHOOK_BASE_URL = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().replace(/\/+$/, "") || "";
 const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "";
 const seenTelegramUpdateIds = new Map();
+let telegramWebhookRegistered = false;
 const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").trim();
 const seenInstagramMessageIds = new Map();
 const instagramLastReply = new Map();
@@ -263,6 +264,7 @@ const server = createServer(async (req, res) => {
       if (seenTelegramUpdateIds.has(updateId)) return send(res, 200, { received: true, duplicate: true });
       seenTelegramUpdateIds.set(updateId, Date.now());
       if (seenTelegramUpdateIds.size > 5000) { const oldest = seenTelegramUpdateIds.keys().next().value; if (oldest !== undefined) seenTelegramUpdateIds.delete(oldest); }
+      console.log("Atualização do Telegram recebida:", updateId, "temMensagem:", Boolean(update?.message));
       send(res, 200, { received: true });
       setImmediate(() => processTelegramUpdate(update).catch(error => console.error("Falha no atendimento Telegram:", error?.message || "erro")));
       return;
@@ -307,7 +309,7 @@ const server = createServer(async (req, res) => {
       instagram: { configured: Boolean(INSTAGRAM_ACCOUNT_ID && INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_APP_SECRET && INSTAGRAM_VERIFY_TOKEN), webhookPath: "/instagram/webhook", apiVersion: META_GRAPH_API_VERSION },
       telegram: {
         configured: Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_WEBHOOK_SECRET),
-        webhookReady: Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_WEBHOOK_SECRET && TELEGRAM_WEBHOOK_BASE_URL),
+        webhookReady: telegramWebhookRegistered,
         baseUrlConfigured: Boolean(TELEGRAM_WEBHOOK_BASE_URL),
         webhookPath: "/telegram/webhook"
       }
@@ -697,8 +699,15 @@ server.listen(PORT, "0.0.0.0", () => {
       signal: AbortSignal.timeout(15000)
     }).then(async response => {
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok !== true) console.error("Não foi possível registrar webhook do Telegram.");
-      else console.log("Webhook do Telegram registrado.");
-    }).catch(() => console.error("Falha ao registrar webhook do Telegram."));
+      telegramWebhookRegistered = Boolean(response.ok && data.ok === true);
+      if (!telegramWebhookRegistered) {
+        console.error("Falha ao registrar webhook do Telegram:", response.status, data.description || "resposta inválida");
+      } else {
+        console.log("Webhook do Telegram registrado com sucesso:", webhookUrl);
+      }
+    }).catch(error => {
+      telegramWebhookRegistered = false;
+      console.error("Falha ao registrar webhook do Telegram:", error?.message || "erro de rede");
+    });
   }
 });
