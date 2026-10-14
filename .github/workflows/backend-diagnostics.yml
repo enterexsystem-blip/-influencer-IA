@@ -42,6 +42,13 @@ jobs:
           node --check local-responses.js
           node --check local-responses-v2.js
 
+      - name: Build diagnostic report
+        if: always()
+        working-directory: backend
+        env:
+          DIAGNOSTICS_REPORT_PATH: diagnostics-report.json
+        run: node scripts/diagnose.js
+
       - name: Run regression tests
         working-directory: backend
         run: npm test
