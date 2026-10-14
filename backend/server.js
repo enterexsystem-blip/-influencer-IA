@@ -484,10 +484,10 @@ async function sendTelegramAudio(chatId, relativePath) {
   const sentMessage = data.result || {};
   const messageId = sentMessage.message_id;
   const durationSeconds = Number(sentMessage.audio?.duration || 0);
-  // O Telegram não informa quando a pessoa termina de ouvir. Apagamos após a
-  // duração reportada pelo áudio + 8s de margem, para dar tempo de escutar.
+  // A Bot API não oferece evento de reprodução concluída. Usamos a duração
+  // reportada pelo Telegram e removemos a margem extra para apagar no fim estimado.
   if (messageId) {
-    const deleteAfterMs = Math.max(15000, (durationSeconds + 8) * 1000);
+    const deleteAfterMs = Math.max(1000, durationSeconds * 1000);
     setTimeout(async () => {
       try {
         const deleteResponse = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
