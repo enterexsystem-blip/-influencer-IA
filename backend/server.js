@@ -25,6 +25,7 @@ const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "
 const seenTelegramUpdateIds = new Map();
 let telegramWebhookRegistered = false;
 let telegramWebhookLastError = null;
+let telegramLastReplyError = null;
 const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").trim();
 const seenInstagramMessageIds = new Map();
 const instagramLastReply = new Map();
@@ -122,7 +123,7 @@ async function generateAylaReply(message, userId, extraInstructions = "") {
       signal: AbortSignal.timeout(25_000)
     });
     data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}`);
+    if (!upstream.ok) throw new Error(`Provedor de IA respondeu com status ${upstream.status}: ${String(data.error?.message || data.message || data.error?.code || "erro sem detalhes").slice(0, 240)}`);
     const generated = data.choices?.[0]?.message?.content?.trim() || "";
     const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
     rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() });
@@ -247,7 +248,8 @@ async function processTelegramUpdate(update) {
     const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
     if (reply) await sendTelegramText(chatId, reply);
   } catch (error) {
-    console.error("Falha ao gerar resposta da Ayla no Telegram:", error?.message || "erro");
+    telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
+    console.error("Falha ao gerar resposta da Ayla no Telegram:", telegramLastReplyError);
     await sendTelegramText(chatId, "Ai, tive um probleminha para formular a resposta agora 😕 Tenta me mandar de novo daqui a pouquinho.");
   }
 }
@@ -312,6 +314,7 @@ const server = createServer(async (req, res) => {
         configured: Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_WEBHOOK_SECRET),
         webhookReady: telegramWebhookRegistered,
         webhookLastError: telegramWebhookLastError,
+        lastReplyError: telegramLastReplyError,
         baseUrlConfigured: Boolean(TELEGRAM_WEBHOOK_BASE_URL),
         webhookPath: "/telegram/webhook"
       }
