@@ -25,8 +25,8 @@ try {
   }
   add("audio-directory", files.length > 0 ? "PASS" : "FAIL", `${files.length} arquivos; ${extensionless} sem extensão; ${tiny} abaixo de 1 KB`);
   if (tiny) add("audio-size", "WARN", "Revise os arquivos muito pequenos; eles podem não ser gravações válidas.");
-  const catalog = JSON.parse(await readFile(join(rootDir, "media", "audios", "catalog.json"), "utf8"));
-  add("audio-catalog", catalog.categories && Object.keys(catalog.categories).length ? "PASS" : "FAIL", `${Object.keys(catalog.categories || {}).length} categorias declaradas`);
+  const catalog = JSON.parse(await readFile(join(rootDir, "media", "audios", "Ayla Logic Enterex - catalog.json"), "utf8"));
+  add("audio-catalog", catalog.categories && Object.keys(catalog.categories).length >= 4 ? "PASS" : "FAIL", `${Object.keys(catalog.categories || {}).length} categorias declaradas`);
 } catch (error) {
   add("audio-inventory", "FAIL", String(error?.message || error).slice(0, 300));
 }
