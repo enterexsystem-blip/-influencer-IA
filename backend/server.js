@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { expandedFallback } from "./local-responses.js";
+import { expandedFallback } from "./local-responses-v2.js";
 
 const PORT = Number(process.env.PORT || 8080);
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
