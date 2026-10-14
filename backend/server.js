@@ -842,6 +842,22 @@ const server = createServer(async (req, res) => {
       },
       audio,
       counters: runtimeDiagnostics,
+      checks: [
+        { id: "telegram-token", area: "Telegram", label: "Token configurado", status: TELEGRAM_BOT_TOKEN ? "ok" : "error", detail: TELEGRAM_BOT_TOKEN ? "A variável existe; a validade real depende de uma chamada à API." : "Configure TELEGRAM_BOT_TOKEN no ambiente do servidor." },
+        { id: "telegram-webhook", area: "Telegram", label: "Webhook registrado", status: telegramWebhookRegistered ? "ok" : "warning", detail: telegramWebhookRegistered ? "O processo marcou o webhook como registrado." : (telegramWebhookLastError || "O registro ainda não foi confirmado por este processo.") },
+        { id: "ai-key", area: "IA", label: "Chave de IA presente", status: API_KEY ? "ok" : "warning", detail: API_KEY ? "A chave está presente, mas isso não confirma autenticação; valide com uma requisição real." : "Sem chave configurada: respostas podem usar apenas frases locais." },
+        { id: "database", area: "Memória", label: "Banco persistente", status: dbReady ? "ok" : "warning", detail: dbReady ? "A conexão PostgreSQL foi inicializada." : "A memória pode ser temporária e se perder ao reiniciar o processo." },
+        { id: "audio-folder", area: "Áudio", label: "Pasta de áudios", status: (await getAudioInventory()).directoryExists ? "ok" : "error", detail: (await getAudioInventory()).directoryExists ? "A pasta de áudios foi localizada no deploy." : "A pasta de áudios não foi localizada no caminho esperado." },
+        { id: "instagram", area: "Instagram", label: "Integração Instagram", status: (INSTAGRAM_ACCOUNT_ID && INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_APP_SECRET && INSTAGRAM_VERIFY_TOKEN) ? "ok" : "warning", detail: (INSTAGRAM_ACCOUNT_ID && INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_APP_SECRET && INSTAGRAM_VERIFY_TOKEN) ? "Variáveis necessárias presentes; ainda é preciso validar permissões e entrega." : "Integração incompleta ou desativada. Se não usa Instagram, este aviso é esperado." },
+        { id: "recent-errors", area: "Sistema", label: "Erros recentes", status: runtimeDiagnostics.recentErrors.length ? "error" : "ok", detail: runtimeDiagnostics.recentErrors.length ? "Há erros nesta execução. Veja a lista detalhada." : "Nenhum erro registrado nesta execução; isso não garante que todos os subsistemas foram testados." }
+      ],
+      recovery: {
+        localFallbackAvailable: true,
+        alternateProviderConfigured: Boolean(process.env.AI_FALLBACK_API_KEY && process.env.AI_FALLBACK_PROVIDER),
+        alternateProvider: process.env.AI_FALLBACK_PROVIDER || null,
+        automaticServerFailover: false,
+        note: "A troca automática de servidor ainda não está configurada. O fallback local existe; o provedor alternativo exige credenciais e implementação de failover."
+      },
       errors: {
         webhook: telegramWebhookLastError,
         reply: telegramLastReplyError,
