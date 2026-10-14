@@ -250,22 +250,46 @@ function chooseTelegramAudio(sourceMessage, reply) {
 async function sendTelegramAudio(chatId, relativePath) {
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
   if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de áudio inválido.");
-  let bytes;
+
+  // Primeiro tenta o MP3 instalado no próprio repositório/deploy.
+  let bytes = null;
   try {
     bytes = await readFile(join(AUDIO_DIR, relativePath));
   } catch {
-    return false;
+    // Alternativa: hospedar os MP3s em um endereço HTTPS público e configurar AUDIO_BASE_URL.
   }
-  const form = new FormData();
-  form.append("chat_id", String(chatId));
-  form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), relativePath.split("/").pop());
-  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
-    method: "POST",
-    body: form,
-    signal: AbortSignal.timeout(20000)
-  });
+
+  let response;
+  if (bytes) {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), relativePath.split("/").pop());
+    response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(20000)
+    });
+  } else {
+    const baseUrl = process.env.AUDIO_BASE_URL?.trim().replace(/\\/+$/, "");
+    if (!baseUrl) {
+      console.error("MP3 não encontrado no deploy e AUDIO_BASE_URL não está configurada:", relativePath);
+      return false;
+    }
+    const audioUrl = baseUrl + "/" + relativePath.split("/").map(encodeURIComponent).join("/");
+    response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, audio: audioUrl }),
+      signal: AbortSignal.timeout(20000)
+    });
+  }
+
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok !== true) throw new Error("A API do Telegram não aceitou o áudio.");
+  if (!response.ok || data.ok !== true) {
+    const description = String(data.description || "resposta inválida").slice(0, 300);
+    console.error("Telegram sendAudio falhou:", response.status, description);
+    throw new Error("Telegram sendAudio falhou (" + response.status + "): " + description);
+  }
   return true;
 }
 
