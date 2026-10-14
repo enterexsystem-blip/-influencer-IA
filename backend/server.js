@@ -619,9 +619,11 @@ async function processTelegramUpdate(update) {
       "Updates recebidos: " + runtimeDiagnostics.updatesReceived + " | mensagens: " + runtimeDiagnostics.messagesReceived,
       "Respostas geradas: " + runtimeDiagnostics.repliesGenerated + " | enviadas: " + runtimeDiagnostics.repliesSent + " | áudios enviados: " + runtimeDiagnostics.audioSent,
       "Alternativas em texto: " + runtimeDiagnostics.textFallbacks + " | pendências: " + scheduledTelegramTimers.size,
+      "Último webhook: " + (runtimeDiagnostics.lastWebhookAt || "nenhum recebido desde que iniciou") + " | update_id: " + (runtimeDiagnostics.lastUpdateId ?? "—"),
       "Última mensagem: " + (runtimeDiagnostics.lastMessageAt || "nenhuma desde que iniciou"),
       "Última resposta gerada: " + (runtimeDiagnostics.lastReplyGeneratedAt || "nenhuma"),
       "Última resposta enviada: " + (runtimeDiagnostics.lastReplySentAt || "nenhuma"),
+      "Erros recentes na memória: " + runtimeDiagnostics.recentErrors.length,
       "Último erro: " + (lastError ? lastError.phase + " — " + lastError.message : telegramLastReplyError || telegramWebhookLastError || "nenhum registrado"),
       "Iniciado: " + new Date(startedAt).toISOString(),
       "Use /menu para mudar o modo."
