@@ -367,6 +367,7 @@ const server = createServer(async (req, res) => {
     const relationshipLevel = Number.isInteger(body.relationshipLevel) ? Math.max(0, Math.min(100, body.relationshipLevel)) : 0;
     const localHour = Number.isInteger(body.localHour) ? Math.max(0, Math.min(23, body.localHour)) : null;
     const contextNote = typeof body.contextNote === "string" ? body.contextNote.trim().slice(0, 500) : "";
+    const extraInstructions = ""; // Mantém o prompt principal consistente sem variável indefinida.
     const userId = typeof body.userId === "string" ? body.userId.trim().replace(/[^a-zA-Z0-9:_@.\-]/g, "").slice(0, 180) : "";
     if (!userId) return send(res, 400, { error: "Identificador de usuário ausente." });
     fallbackUserId = userId;
