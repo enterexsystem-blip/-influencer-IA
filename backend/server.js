@@ -40,6 +40,7 @@ const seenTelegramUpdateIds = new Map();
 let telegramWebhookRegistered = false;
 let telegramWebhookLastError = null;
 let telegramLastReplyError = null;
+let lastAylaErrorReply = null;
 const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").trim();
 const seenInstagramMessageIds = new Map();
 const instagramLastReply = new Map();
@@ -946,6 +947,8 @@ async function processTelegramUpdate(update) {
       // Simula a Ayla digitando também quando a geração falha, antes de enviar a explicação.
       await simulateTelegramTyping(chatId, userNotice);
       const sent = await sendTelegramText(chatId, userNotice, { inline_keyboard: keyboard });
+      lastAylaErrorReply = { at: new Date().toISOString(), text: userNotice };
+      addRuntimeEvent("info", "Resposta de erro da Ayla enviada ao Telegram", { category: "ayla-error-reply" });
       if (alternatives.length) {
         pendingFailovers.set(senderId, { creatorId: senderId, chatId, messageId: sent?.message_id || null, sourceText: text, extraInstructions: "" });
       }
@@ -1069,6 +1072,7 @@ const server = createServer(async (req, res) => {
         automaticServerFailover: false,
         note: "A troca automática de servidor ainda não está configurada. O fallback local existe; o provedor alternativo exige credenciais e implementação de failover."
       },
+      aylaErrorReply: lastAylaErrorReply,
       errors: {
         webhook: telegramWebhookLastError,
         reply: telegramLastReplyError,
