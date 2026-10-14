@@ -965,7 +965,7 @@ async function processTelegramUpdate(update) {
       return;
     }
     const delay = isKyodai ? 350 : chooseTelegramDelay(text, level);
-    const responseMode = ["texto", "audio", "ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
+    const responseMode = isKyodai ? "ambos" : (["texto", "audio", "ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto");
     await scheduleTelegramReply(chatId, reply, text, delay, responseMode);
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
   } catch (error) {
