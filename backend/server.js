@@ -83,44 +83,8 @@ function recordDiagnosticError(phase, error, details = {}) {
   return item;
 }
 async function notifyCreatorDiagnostic(item) {
-  if (!TELEGRAM_BOT_TOKEN || !KYODAI_TELEGRAM_USER_ID) return;
-  const key = item.phase + "|" + item.message;
-  const now = Date.now();
-  const last = notifiedDiagnosticKeys.get(key) || 0;
-  if (now - last < 10 * 60 * 1000) return;
-  notifiedDiagnosticKeys.set(key, now);
-  if (notifiedDiagnosticKeys.size > 200) {
-    for (const [k, at] of notifiedDiagnosticKeys) if (now - at > 60 * 60 * 1000) notifiedDiagnosticKeys.delete(k);
-  }
-  const knownPhases = {
-    "telegram.generate_or_schedule": "A Ayla recebeu a mensagem, mas falhou ao gerar ou agendar a resposta.",
-    "telegram.deliver_reply": "A resposta foi preparada, mas a entrega pelo Telegram falhou.",
-    "telegram.audio_send": "O envio do áudio falhou; a Ayla pode tentar enviar texto como alternativa.",
-    "telegram.audio_file_missing": "Nenhum áudio compatível foi localizado para esta resposta.",
-    "telegram.process_update": "O processamento de uma atualização do Telegram falhou.",
-    "diagnostics.dashboard": "O painel visual de diagnóstico não pôde ser carregado."
-  };
-  const phaseLabel = knownPhases[item.phase] || "O sistema registrou uma falha em um componente da Ayla.";
-  const text = [
-    "🩺 AYLA · ALERTA DE SISTEMA",
-    "",
-    "⚠️ Foi detectado um erro que precisa de atenção.",
-    "",
-    "📍 LOCAL",
-    item.phase,
-    "",
-    "📝 O QUE ACONTECEU",
-    phaseLabel,
-    item.message,
-    "",
-    "🕒 HORÁRIO (UTC)",
-    item.at,
-    "",
-    "🔎 Abra a central para ver os módulos, verificações e relatório completo."
-  ].join("\n").slice(0, 3500);
-  await sendTelegramText(KYODAI_TELEGRAM_USER_ID, text, {
-    inline_keyboard: [[{ text: "🩺 Abrir diagnóstico completo", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]]
-  });
+  // Erros técnicos ficam na Central de Diagnóstico; não enviar mensagens separadas no Telegram.
+  return false;
 }
 
 async function getAudioInventory() {
@@ -970,22 +934,20 @@ async function processTelegramUpdate(update) {
       "Senhor, estou com uma falha no processamento agora. Confira o diagnóstico abaixo para saber o que aconteceu."
     ];
     const choices = matchedError ? matchedError.messages : defaultReplies;
-    const userNotice = choices[Math.floor(Math.random() * choices.length)];
+    let userNotice = choices[Math.floor(Math.random() * choices.length)];
+    const alternatives = isKyodai ? availableFailoverProviders() : [];
+    const keyboard = [];
+    if (alternatives.length) {
+      userNotice += "\\n\\nKyodai, também tenho uma conexão alternativa disponível (" + alternatives[0] + "). Quer que eu tente trocar? Só começo a contagem depois da sua autorização.";
+      keyboard.push([{ text: "🔌 Autorizar troca", callback_data: "failover:approve" }, { text: "Não, permanecer", callback_data: "failover:deny" }]);
+    }
+    keyboard.push([{ text: "🩺 Central de diagnóstico", url: diagnosticUrl }]);
     try {
-      await sendTelegramText(chatId, userNotice, {
-        inline_keyboard: [[{ text: "🩺 Abrir diagnóstico da Ayla", url: diagnosticUrl }]]
-      });
-      if (isKyodai) {
-        const alternatives = availableFailoverProviders();
-        if (alternatives.length) {
-          const requestText = userNotice + "\\n\\nKyodai, encontrei um provedor alternativo disponível: " + alternatives[0] + ". Posso iniciar a troca? A contagem de 1 a 10 minutos só começa depois que você autorizar. Minha personalidade e memória continuam no mesmo sistema.";
-          const sent = await sendTelegramText(chatId, requestText, { inline_keyboard: [
-            [{ text: "🔌 Autorizar troca", callback_data: "failover:approve" }, { text: "Não, permanecer", callback_data: "failover:deny" }],
-            [{ text: "🩺 Abrir diagnóstico", url: diagnosticUrl }]
-          ] });
-          const state = { creatorId: senderId, chatId, messageId: sent?.message_id || null, sourceText: text, extraInstructions: "" };
-          pendingFailovers.set(senderId, state);
-        }
+      // Simula a Ayla digitando também quando a geração falha, antes de enviar a explicação.
+      await simulateTelegramTyping(chatId, userNotice);
+      const sent = await sendTelegramText(chatId, userNotice, { inline_keyboard: keyboard });
+      if (alternatives.length) {
+        pendingFailovers.set(senderId, { creatorId: senderId, chatId, messageId: sent?.message_id || null, sourceText: text, extraInstructions: "" });
       }
     } catch (sendError) {
       recordDiagnosticError("telegram.error_notice", sendError);
