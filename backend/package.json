@@ -5,7 +5,9 @@
   "description": "Backend seguro para conectar a influencer IA ao Google Gemini",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "diagnose": "node scripts/diagnose.js"
   },
   "engines": {
     "node": ">=20"
