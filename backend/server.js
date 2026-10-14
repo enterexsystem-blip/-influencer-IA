@@ -9,6 +9,7 @@ const PORT = Number(process.env.PORT || 8080);
 const BACKEND_DIR = dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = join(BACKEND_DIR, "..", "media", "audios");
 const PHOTO_DIR = join(BACKEND_DIR, "..", "media", "fotos");
+const ADULT_VIDEO_DIR = join(BACKEND_DIR, "..", "media", "18+");
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
 const API_KEY = KEY_CANDIDATES.find(key => key.startsWith("sk-or-v1-")) || KEY_CANDIDATES[0] || "";
 const PROVIDER = API_KEY.startsWith("sk-or-v1-") ? "openrouter" : (process.env.AI_PROVIDER || "gemini").toLowerCase();
@@ -433,6 +434,23 @@ function addTelegramXp(profile, amount = 1) {
   profile.interactions = Math.max(0, Number(profile.interactions) || 0) + 1;
   const after = intimacyForXp(profile.xp);
   return { before, after, xp: profile.xp, leveledUp: after.level > before.level };
+}
+
+async function sendTelegramVideo(chatId, fileName, caption = "") {
+  if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
+  if (!fileName || fileName.includes("..") || fileName.includes("/") || fileName.includes("\\") || !/\.(mp4|mov|m4v|webm)$/i.test(fileName)) throw new Error("Nome de vídeo inválido.");
+  const bytes = await readFile(join(ADULT_VIDEO_DIR, fileName));
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  if (caption) form.append("caption", String(caption).slice(0, 900));
+  const mime = /\.webm$/i.test(fileName) ? "video/webm" : /\.mov$/i.test(fileName) ? "video/quicktime" : "video/mp4";
+  form.append("video", new Blob([bytes], { type: mime }), fileName);
+  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendVideo", {
+    method: "POST", body: form, signal: AbortSignal.timeout(60000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true) throw new Error("Telegram sendVideo falhou: " + String(data.description || response.status).slice(0, 200));
+  return data.result;
 }
 
 async function sendTelegramPhoto(chatId, relativePath, caption = "", replyMarkup = null) {
@@ -968,6 +986,33 @@ async function processTelegramUpdate(update) {
     } catch (error) {
       recordDiagnosticError("telegram.test_audio_send", error);
       await sendTelegramText(chatId, "Tentei mandar o áudio, mas o Telegram recusou o envio. Abre /status pra conferir o erro.");
+    }
+    return;
+  }
+  if (text === "/18" || text.startsWith("/18@")) {
+    if (!isKyodai) {
+      await sendTelegramText(chatId, "🔞 Esse comando é restrito ao criador da Ayla.");
+      return;
+    }
+    let videos = [];
+    try {
+      videos = (await readdir(ADULT_VIDEO_DIR, { withFileTypes: true }))
+        .filter(entry => entry.isFile() && /\.(mp4|mov|m4v|webm)$/i.test(entry.name))
+        .map(entry => entry.name);
+    } catch (error) {
+      recordDiagnosticError("telegram.adult_video_list", error);
+    }
+    if (!videos.length) {
+      await sendTelegramText(chatId, "🔞 Ainda não encontrei vídeos em media/18+. Envie vídeos MP4, MOV, M4V ou WEBM para essa pasta no GitHub e aguarde o deploy.");
+      return;
+    }
+    const selected = videos[Math.floor(Math.random() * videos.length)];
+    try {
+      await sendTelegramVideo(chatId, selected, "🔞 Vídeo aleatório · Área 18+");
+      addRuntimeEvent("info", "Vídeo aleatório 18+ enviado pelo comando /18");
+    } catch (error) {
+      recordDiagnosticError("telegram.adult_video_send", error);
+      await sendTelegramText(chatId, "Não consegui enviar esse vídeo. Confere o formato e o tamanho do arquivo e tenta novamente.");
     }
     return;
   }
