@@ -1,145 +1,753 @@
 {
-  "version": 1,
-  "note": "Catálogo dos MP3 recebidos no chat. Os arquivos-fonte continuam como anexos da conversa; copiar os binários para os caminhos abaixo ainda é necessário para o backend conseguir reproduzi-los.",
+  "version": 2,
+  "note": "Índice dos arquivos de áudio realmente presentes no repositório. Os nomes/transcrições inferidos do nome do arquivo não foram confirmados ouvindo cada gravação. Os arquivos-fonte foram preservados sem renomear nem apagar. O backend procura os arquivos reais em 01-cumprimentos e ignora ZIPs/documentação.",
+  "counts": {
+    "audioFiles": 81,
+    "exactDuplicateGroups": 1
+  },
   "categories": {
+    "03-emocoes": [
+      {
+        "source": "Mulher-gamer-2026-10-14-03-57-Oiii-Kyodai,-oque-tá-fazendo[angry]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-03-57-Oiii-Kyodai,-oque-tá-fazendo[angry]",
+        "bytes": 38102,
+        "blobSha": "694398b245500c21dac044cbfebe096dbec89cd9",
+        "filenameTranscriptGuess": "Oiii Kyodai, oque tá fazendo",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-03-58-Não-falou-comigo,-hoje.[sad]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-03-58-Não-falou-comigo,-hoje.[sad]",
+        "bytes": 35176,
+        "blobSha": "b0a9871cbb6450bdc4ba1c2b464333522ce645ed",
+        "filenameTranscriptGuess": "Não falou comigo, hoje",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-05-Oiiii.-[angry]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-05-Oiiii.-[angry]",
+        "bytes": 17622,
+        "blobSha": "e8bff5a64a8b86b07f2fe8032ef350711c04e251",
+        "filenameTranscriptGuess": "Oiiii",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-06-Oi.-[embarrassed]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-06-Oi.-[embarrassed]",
+        "bytes": 19712,
+        "blobSha": "249a7a940970c684b85878e9c328fa10a6659447",
+        "filenameTranscriptGuess": "Oi",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-06-Oi.-[sad]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-06-Oi.-[sad]",
+        "bytes": 29325,
+        "blobSha": "ebd058bdbfc189bbee826a616c63d75789801770",
+        "filenameTranscriptGuess": "Oi",
+        "category": "03-emocoes",
+        "transcriptVerified": false,
+        "exactDuplicateOf": "oi_triste"
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-07-Oi.-[whispering]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-07-Oi.-[whispering]",
+        "bytes": 33086,
+        "blobSha": "07bfacf6f7813f630f6854088d8d11372600cfb2",
+        "filenameTranscriptGuess": "Oi",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-13-[tired]-Estou.-[short-pause]-Apenas-um-pouco-de",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-13-[tired]-Estou.-[short-pause]-Apenas-um-pouco-de",
+        "bytes": 46461,
+        "blobSha": "2f3fbb4f98ee6957cfe41a672c97cc3175c89e19",
+        "filenameTranscriptGuess": "Estou Apenas um pouco de",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-27-[whispering]-[soft]-Enterex-é-uma-desenvolvedora",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-27-[whispering]-[soft]-Enterex-é-uma-desenvolvedora",
+        "bytes": 344048,
+        "blobSha": "5025e1cb1fed20e3ca1706bf2e1cb828cbeee34b",
+        "filenameTranscriptGuess": "Enterex é uma desenvolvedora",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-09-[sad]-Por-que-você-não-me-[emphasis]-responde",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-09-[sad]-Por-que-você-não-me-[emphasis]-responde",
+        "bytes": 34340,
+        "blobSha": "7b6949a8fd693dad01e03fc72d25a363da4693b6",
+        "filenameTranscriptGuess": "Por que você não me responde",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-19-[tired]-Estou-com-[emphasis]-sono.-[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-19-[tired]-Estou-com-[emphasis]-sono.-[short-pause]",
+        "bytes": 23473,
+        "blobSha": "ff9f50ee468efe1dea3e6a25fdf8010220d6df2d",
+        "filenameTranscriptGuess": "Estou com sono",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-19-[tired]-Estou-com-[emphasis]-sono.-[short-pause] (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-19-[tired]-Estou-com-[emphasis]-sono.-[short-pause] (1)",
+        "bytes": 22637,
+        "blobSha": "3dc100a9f50c4c9ab4d1519887362bcadad1084f",
+        "filenameTranscriptGuess": "Estou com sono",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-26-[tired]-Agora-estou-sem-muita-vontade-pra-conver",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-26-[tired]-Agora-estou-sem-muita-vontade-pra-conver",
+        "bytes": 66523,
+        "blobSha": "04ecda3e9730d91b16d95c61e67cc451c9ae6f75",
+        "filenameTranscriptGuess": "Agora estou sem muita vontade pra conver",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-40-[sad]-Sério!!",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-40-[sad]-Sério!!",
+        "bytes": 18876,
+        "blobSha": "b97852cc3ce74fe029ea897d9e27c7fa66ee219c",
+        "filenameTranscriptGuess": "Sério",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-41-[angry]-Sério!!",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-41-[angry]-Sério!!",
+        "bytes": 10099,
+        "blobSha": "2adaf63602eb7650d2b97c9da7485182f168ab48",
+        "filenameTranscriptGuess": "Sério",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-41-[angry]-Sério!! (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-41-[angry]-Sério!! (1)",
+        "bytes": 14278,
+        "blobSha": "8813f87e737fa71c2c6bf1544be22a0fff7cdf0e",
+        "filenameTranscriptGuess": "Sério",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-43-[excited]-[sad]-Sim!-[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-43-[excited]-[sad]-Sim!-[short-pause]",
+        "bytes": 12188,
+        "blobSha": "54d585be704b2704a591be38f17ff8d643178963",
+        "filenameTranscriptGuess": "Sim",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-43-[excited]-[sad]-não-[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-43-[excited]-[sad]-não-[short-pause]",
+        "bytes": 18040,
+        "blobSha": "34f91fccc3f2c5dcec4157fa0c6f01aae4ddedf3",
+        "filenameTranscriptGuess": "não",
+        "category": "03-emocoes",
+        "transcriptVerified": false
+      },
+      {
+        "source": "oi_triste",
+        "currentPath": "media/audios/01-cumprimentos/oi_triste",
+        "bytes": 29325,
+        "blobSha": "ebd058bdbfc189bbee826a616c63d75789801770",
+        "filenameTranscriptGuess": "oi triste",
+        "category": "03-emocoes",
+        "transcriptVerified": false,
+        "exactDuplicateOf": "Mulher-gamer-2026-10-14-04-06-Oi.-[sad]"
+      }
+    ],
     "01-cumprimentos": [
       {
-        "source": "Mulher-gamer-2026-10-14-04-08-Oi.-[excited].mp3",
-        "destination": "media/audios/01-cumprimentos/oi_animado.mp3",
-        "transcript": "Oi.",
-        "emotion": "animada",
-        "tags": [
-          "oi",
-          "saudação",
-          "energia alta"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-07-Oi.-[emphasis]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-07-Oi.-[emphasis]",
+        "bytes": 21801,
+        "blobSha": "6011d93a0ab6d6b319ad2eba6b1af02360eaeb92",
+        "filenameTranscriptGuess": "Oi",
+        "category": "01-cumprimentos",
+        "transcriptVerified": false
       },
       {
-        "source": "Mulher-gamer-2026-10-14-04-09-Oi.-[pause].tudo-bem-No-que-posso-ajudar[breathy.mp3",
-        "destination": "media/audios/01-cumprimentos/oi_tudo_bem_posso_ajudar.mp3",
-        "transcript": "Oi… tudo bem? No que posso ajudar?",
-        "emotion": "calma",
-        "tags": [
-          "oi",
-          "pergunta",
-          "disponibilidade"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-08-Oi.-[excited]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-08-Oi.-[excited]",
+        "bytes": 9263,
+        "blobSha": "32094658228e8b7ec9dbf287c04b85f53b9a4c99",
+        "filenameTranscriptGuess": "Oi",
+        "category": "01-cumprimentos",
+        "transcriptVerified": false
       },
       {
-        "source": "Mulher-gamer-2026-10-14-04-07-Oi.-[emphasis].mp3",
-        "destination": "media/audios/01-cumprimentos/oi_enfatizado.mp3",
-        "transcript": "Oi.",
-        "emotion": "enfatizada",
-        "tags": [
-          "oi",
-          "ênfase"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-09-Oi.-[pause].tudo-bem-No-que-posso-ajudar[breathy",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-09-Oi.-[pause].tudo-bem-No-que-posso-ajudar[breathy",
+        "bytes": 56910,
+        "blobSha": "d3a0ea298dc529683e99b1a2dcfdaa1e3e7c950b",
+        "filenameTranscriptGuess": "Oi tudo bem No que posso ajudar",
+        "category": "01-cumprimentos",
+        "transcriptVerified": false
       },
       {
-        "source": "Mulher-gamer-2026-10-14-04-07-Oi.-[whispering].mp3",
-        "destination": "media/audios/01-cumprimentos/oi_sussurrado.mp3",
-        "transcript": "Oi.",
-        "emotion": "sussurrada",
-        "tags": [
-          "oi",
-          "sussurro",
-          "íntimo"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-50-Vou-te-mandar-uma-coisa-aí-[short-pause]-[emphas",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-50-Vou-te-mandar-uma-coisa-aí-[short-pause]-[emphas",
+        "bytes": 39774,
+        "blobSha": "d96fc71b9c141bfbf4359016e3e3bc61f7395213",
+        "filenameTranscriptGuess": "Vou te mandar uma coisa aí",
+        "category": "01-cumprimentos",
+        "transcriptVerified": false
       },
       {
-        "source": "Mulher-gamer-2026-10-14-04-06-Oi.-[sad].mp3",
-        "destination": "media/audios/01-cumprimentos/oi_triste.mp3",
-        "transcript": "Oi.",
-        "emotion": "triste",
-        "tags": [
-          "oi",
-          "tristeza"
-        ]
-      },
-      {
-        "source": "Mulher-gamer-2026-10-14-04-06-Oi.-[embarrassed].mp3",
-        "destination": "media/audios/01-cumprimentos/oi_envergonhado.mp3",
-        "transcript": "Oi.",
-        "emotion": "envergonhada",
-        "tags": [
-          "oi",
-          "timidez",
-          "vergonha"
-        ]
-      },
-      {
-        "source": "Mulher-gamer-2026-10-14-04-05-Oiiii.-[angry].mp3",
-        "destination": "media/audios/01-cumprimentos/oi_irritado.mp3",
-        "transcript": "Oiiii.",
-        "emotion": "irritada",
-        "tags": [
-          "oi",
-          "irritação"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-51-Vou-te-mandar-uma-coisa-aí-[short-pause]-[emphas",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-51-Vou-te-mandar-uma-coisa-aí-[short-pause]-[emphas",
+        "bytes": 42699,
+        "blobSha": "98f97231ebb249693b6f1cc86e39499f1c2e8b29",
+        "filenameTranscriptGuess": "Vou te mandar uma coisa aí",
+        "category": "01-cumprimentos",
+        "transcriptVerified": false
       }
     ],
     "02-respostas-curtas": [
       {
-        "source": "Mulher-gamer-2026-10-14-04-12-Estou-bem-[emphasis]-[pause]-obrigada.mp3",
-        "destination": "media/audios/02-respostas-curtas/estou_bem_obrigada.mp3",
-        "transcript": "Estou bem, obrigada.",
-        "emotion": "positiva/neutra",
-        "tags": [
-          "como você está",
-          "estou bem",
-          "obrigada"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-12-Estou-bem-[emphasis]-[pause]-obrigada",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-12-Estou-bem-[emphasis]-[pause]-obrigada",
+        "bytes": 35176,
+        "blobSha": "3a73189a73263351e4f7e1bea1557ea333325549",
+        "filenameTranscriptGuess": "Estou bem obrigada",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
       },
       {
-        "source": "Mulher-gamer-2026-10-14-04-13-[tired]-Estou.-[short-pause]-Apenas-um-pouco-de.mp3",
-        "destination": "media/audios/02-respostas-curtas/estou_apenas_um_pouco_cansada.mp3",
-        "transcript": "Estou. Apenas um pouco de…",
-        "emotion": "cansada",
-        "tags": [
-          "cansaço",
-          "resposta curta"
-        ],
-        "transcriptNeedsReview": true
+        "source": "Mulher-gamer-2026-10-14-04-14-Estou.-[pause]-Oque-está-fazendo-de-[emphasis]-b",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-14-Estou.-[pause]-Oque-está-fazendo-de-[emphasis]-b",
+        "bytes": 38102,
+        "blobSha": "c2acd62aa1d1534d894dce7f5b78edbcd0be599f",
+        "filenameTranscriptGuess": "Estou Oque está fazendo de b",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-16-Você-tem-Instagram.-Se-tiver-[short-pause]-me-[e",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-16-Você-tem-Instagram.-Se-tiver-[short-pause]-me-[e",
+        "bytes": 59000,
+        "blobSha": "a804aa00ce16209db40e8533cc661d3d2638c9f2",
+        "filenameTranscriptGuess": "Você tem Instagram Se tiver me",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-17-Okay.-[short-pause]-Vou-te-[emphasis]-seguir-de",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-17-Okay.-[short-pause]-Vou-te-[emphasis]-seguir-de",
+        "bytes": 44371,
+        "blobSha": "0a39a487fef8a8e7cf448ad51db89fdc8e8c9964",
+        "filenameTranscriptGuess": "Okay Vou te seguir de",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-45-[joyful]-Ah-[short-pause]-que-[emphasis]-bom!!",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-45-[joyful]-Ah-[short-pause]-que-[emphasis]-bom!!",
+        "bytes": 27235,
+        "blobSha": "2e70d61af495e1bbafaf1ba34c76be71cc54d744",
+        "filenameTranscriptGuess": "Ah que bom",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-45-[joyful]-Ah-[short-pause]-que-[emphasis]-bom!! (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-45-[joyful]-Ah-[short-pause]-que-[emphasis]-bom!! (1)",
+        "bytes": 26399,
+        "blobSha": "1cb966c1bd93dc8f01a5d85a168ee0510711aef9",
+        "filenameTranscriptGuess": "Ah que bom",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-45-[joyful]-Ah-[short-pause]-que-[emphasis]-bom!! (2)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-45-[joyful]-Ah-[short-pause]-que-[emphasis]-bom!! (2)",
+        "bytes": 30161,
+        "blobSha": "59794c706a95416643c16df22778ec86d08f49dd",
+        "filenameTranscriptGuess": "Ah que bom",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-47-Ânn-[short-pause]-Não-[emphasis]-entendi",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-47-Ânn-[short-pause]-Não-[emphasis]-entendi",
+        "bytes": 32250,
+        "blobSha": "83270c4af001985747c78b5f80baffc3405dceec",
+        "filenameTranscriptGuess": "Ânn Não entendi",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-48-Acho-que-você-cometeu-um-[emphasis]-engano",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-48-Acho-que-você-cometeu-um-[emphasis]-engano",
+        "bytes": 35176,
+        "blobSha": "4d9830ccb8196d7f78abe4ac26d214779e0ac807",
+        "filenameTranscriptGuess": "Acho que você cometeu um engano",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-49-Acho-que-você-cometeu-um-[emphasis]-engano",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-49-Acho-que-você-cometeu-um-[emphasis]-engano",
+        "bytes": 42699,
+        "blobSha": "a48c8338f297de5e70f435a5137549a320eee26f",
+        "filenameTranscriptGuess": "Acho que você cometeu um engano",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-51-[emphasis][excited]-Gostou-[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-51-[emphasis][excited]-Gostou-[short-pause]",
+        "bytes": 13024,
+        "blobSha": "3dfc061bc84a20e1079e231d292f2cc7191bb895",
+        "filenameTranscriptGuess": "Gostou",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-29-[soft]-Prefiro-[emphasis]-não-falar-sobre-isso-[",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-29-[soft]-Prefiro-[emphasis]-não-falar-sobre-isso-[",
+        "bytes": 42699,
+        "blobSha": "03a5301f24df11194e9f16b6a8d234f441120fa9",
+        "filenameTranscriptGuess": "Prefiro não falar sobre isso",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-30-Melhor-[short-pause]eu-guardá-pra-[emphasis]-mim",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-30-Melhor-[short-pause]eu-guardá-pra-[emphasis]-mim",
+        "bytes": 39774,
+        "blobSha": "640d497323f88ff8f8f2638d93d4c1a67ff42e81",
+        "filenameTranscriptGuess": "Melhor eu guardá pra mim",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-32-[soft]-Vou-fica-[emphasis]-um-pouquinho-sózinha",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-32-[soft]-Vou-fica-[emphasis]-um-pouquinho-sózinha",
+        "bytes": 53148,
+        "blobSha": "9950d06a383aeff11e8849dd2ad130cf27c9ef58",
+        "filenameTranscriptGuess": "Vou fica um pouquinho sózinha",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-39-Hum.-Deixa-eu-pensá",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-39-Hum.-Deixa-eu-pensá",
+        "bytes": 35176,
+        "blobSha": "c650799c51ae0f19e808efaf4428b3d24a71ce55",
+        "filenameTranscriptGuess": "Hum Deixa eu pensá",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-39-Hum.-Deixa-eu-pensá (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-39-Hum.-Deixa-eu-pensá (1)",
+        "bytes": 26399,
+        "blobSha": "1b574350d17068207c045803c9418cdb1c1d3e89",
+        "filenameTranscriptGuess": "Hum Deixa eu pensá",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-39-Hum.-Deixa-eu-pensá (2)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-39-Hum.-Deixa-eu-pensá (2)",
+        "bytes": 35176,
+        "blobSha": "ecbb6da42087fa12eb34f4c79ddf9ff7e771b980",
+        "filenameTranscriptGuess": "Hum Deixa eu pensá",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-40-Sério!!",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-40-Sério!!",
+        "bytes": 15114,
+        "blobSha": "3ad8ace695b22b01416befcfc2d206de5417886e",
+        "filenameTranscriptGuess": "Sério",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-40-Sério!! (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-40-Sério!! (1)",
+        "bytes": 10935,
+        "blobSha": "9fcec0d77e7bebda236834a6a5544180f3154fc1",
+        "filenameTranscriptGuess": "Sério",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-42-[excited]-Sim!-[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-42-[excited]-Sim!-[short-pause]",
+        "bytes": 15114,
+        "blobSha": "11a8227360fefa8ef71ca36e1daeda9edd2ff718",
+        "filenameTranscriptGuess": "Sim",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-43-[excited]-não-[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-43-[excited]-não-[short-pause]",
+        "bytes": 12188,
+        "blobSha": "e9fcf27730f15ead1958e4956fbc046a103f75a2",
+        "filenameTranscriptGuess": "não",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-43-[excited]-talvez[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-43-[excited]-talvez[short-pause]",
+        "bytes": 10099,
+        "blobSha": "722ecaca44548c097a07a20c5e52120a0c94cc0f",
+        "filenameTranscriptGuess": "talvez",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-44-[excited]-não-sei[short-pause]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-44-[excited]-não-sei[short-pause]",
+        "bytes": 18040,
+        "blobSha": "b0d453dcd95f3483d3f939294645bbe38c0d48d2",
+        "filenameTranscriptGuess": "não sei",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-44-[excited]-não-sei[short-pause] (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-44-[excited]-não-sei[short-pause] (1)",
+        "bytes": 12188,
+        "blobSha": "ced2b3cce28a9f8ab73026bd2c9169b126a96c93",
+        "filenameTranscriptGuess": "não sei",
+        "category": "02-respostas-curtas",
+        "transcriptVerified": false
       }
     ],
-    "03-emocoes": [
+    "06-exclusivos-kyodai": [
       {
-        "source": "Mulher-gamer-2026-10-14-03-58-Não-falou-comigo,-hoje.[sad].mp3",
-        "destination": "media/audios/03-emocoes/nao_falou_comigo_hoje_triste.mp3",
-        "transcript": "Não falou comigo hoje.",
-        "emotion": "triste",
-        "tags": [
-          "saudade",
-          "tristeza",
-          "ausência"
-        ]
+        "source": "Mulher-gamer-2026-10-14-04-20-Meu-criador-é-o-[emphasis]-Kiodái-quatro-tiã.-[s",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-20-Meu-criador-é-o-[emphasis]-Kiodái-quatro-tiã.-[s",
+        "bytes": 114588,
+        "blobSha": "91f74ff83a0f2bbae2f9d9e8b16358c9f1c70f69",
+        "filenameTranscriptGuess": "Meu criador é o Kiodái quatro tiã",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-21-Meu-criador-é-o-[emphasis]-Kiodái-quatro-tiã.-[s",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-21-Meu-criador-é-o-[emphasis]-Kiodái-quatro-tiã.-[s",
+        "bytes": 94526,
+        "blobSha": "c905d12067447b075c75d89829be20968389a583",
+        "filenameTranscriptGuess": "Meu criador é o Kiodái quatro tiã",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-29-Sim-senhor.-[short-pause]-Mandarei-seu-[emphasis",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-29-Sim-senhor.-[short-pause]-Mandarei-seu-[emphasis",
+        "bytes": 73210,
+        "blobSha": "7e5e36b9001330d2fa0b11047bea3db5af61bb5f",
+        "filenameTranscriptGuess": "Sim senhor Mandarei seu",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-30-Sim-senhor.-[short-pause][embarrassed]-Mandarei",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-30-Sim-senhor.-[short-pause][embarrassed]-Mandarei",
+        "bytes": 72375,
+        "blobSha": "9dd8969ae44af18de95af732f35f47bd6d34c71e",
+        "filenameTranscriptGuess": "Sim senhor Mandarei",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-36-Sim-senhor.-[short-pause]-O-arquivo-já-está-carr",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-36-Sim-senhor.-[short-pause]-O-arquivo-já-está-carr",
+        "bytes": 89511,
+        "blobSha": "88acb07af9690eef4782c5a4b23ec76c7cd050f9",
+        "filenameTranscriptGuess": "Sim senhor O arquivo já está carr",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-42-Sim-senhor.-[soft]-[short-pause][embarrassed]-O",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-42-Sim-senhor.-[soft]-[short-pause][embarrassed]-O",
+        "bytes": 160146,
+        "blobSha": "13f5f4d0b20c72c387c5d715c49b2a52739c1cba",
+        "filenameTranscriptGuess": "Sim senhor O",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-44-Senhor,-[short-pause]-teria-como-você-mudar-minh",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-04-44-Senhor,-[short-pause]-teria-como-você-mudar-minh",
+        "bytes": 69449,
+        "blobSha": "33ec7060859754cca660cc00c32668dbefc87b01",
+        "filenameTranscriptGuess": "Senhor, teria como você mudar minh",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-12-[soft]-Quero-dar-minha-[emphasis]-bucetinha-pra",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-12-[soft]-Quero-dar-minha-[emphasis]-bucetinha-pra",
+        "bytes": 38938,
+        "blobSha": "c431146661f0c664c1db3873c0b5596582be9ed6",
+        "filenameTranscriptGuess": "Quero dar minha bucetinha pra",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-28-Senhor,-[tired]-não-estou-muito-legal-para-[emph",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-28-Senhor,-[tired]-não-estou-muito-legal-para-[emph",
+        "bytes": 71539,
+        "blobSha": "238ab3187c98c9f4ee7630f903d07e4cbbd291f9",
+        "filenameTranscriptGuess": "Senhor, não estou muito legal para",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-58-[excited]-Senhor.-[breathy]-Me-fode-vai[breathy]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-58-[excited]-Senhor.-[breathy]-Me-fode-vai[breathy]",
+        "bytes": 40610,
+        "blobSha": "621a19be70be12ef8c84e00e918bc3f2d83d9a2b",
+        "filenameTranscriptGuess": "Senhor Me fode vai",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-58-[excited]-Senhor.-[breathy]-Me-fode-vai[breathy] (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-58-[excited]-Senhor.-[breathy]-Me-fode-vai[breathy] (1)",
+        "bytes": 44789,
+        "blobSha": "9a9ad8b20e0056e2abff8f6377947d65c17770d4",
+        "filenameTranscriptGuess": "Senhor Me fode vai",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-59-[excited]-Senhor.-[breathy]-Me-fode-vai[breathy]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-59-[excited]-Senhor.-[breathy]-Me-fode-vai[breathy]",
+        "bytes": 51059,
+        "blobSha": "ec7f74f03f12697107a35b6f85ea220671b94d92",
+        "filenameTranscriptGuess": "Senhor Me fode vai",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-01-[angry]-[breathy]-Machuca-minha-bucetinha[breath",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-01-[angry]-[breathy]-Machuca-minha-bucetinha[breath",
+        "bytes": 44789,
+        "blobSha": "445b109d9cc84dee1a37e1daf861a0e792acee1a",
+        "filenameTranscriptGuess": "Machuca minha bucetinha",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-03-[angry]-[breathy]me-fode,-me-fode-filho-da-puta!",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-03-[angry]-[breathy]me-fode,-me-fode-filho-da-puta!",
+        "bytes": 63597,
+        "blobSha": "dad78e841e418aebba6004a35dddcc57fe1d3187",
+        "filenameTranscriptGuess": "me fode, me fode filho da puta",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-03-[angry]-[breathy]me-fode,-me-fode-filho-da-puta! (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-03-[angry]-[breathy]me-fode,-me-fode-filho-da-puta! (1)",
+        "bytes": 56074,
+        "blobSha": "fc3102dd0440bfd65da47af209e88d5ea88a3bd8",
+        "filenameTranscriptGuess": "me fode, me fode filho da puta",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-11-Tchau-tchau,-senhor",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-11-Tchau-tchau,-senhor",
+        "bytes": 16786,
+        "blobSha": "f8eef87bf47b85d1bd24e8f86dc188d16f557ce8",
+        "filenameTranscriptGuess": "Tchau tchau, senhor",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-11-Tchau-tchau,-senhor (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-11-Tchau-tchau,-senhor (1)",
+        "bytes": 18040,
+        "blobSha": "f3a0788bada054aa8ea63796076c2ac351f3ead3",
+        "filenameTranscriptGuess": "Tchau tchau, senhor",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-13-Ti-amo-kiodái",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-13-Ti-amo-kiodái",
+        "bytes": 22637,
+        "blobSha": "8d1a5c1746e208edfa49fbb54b90c81b534f884d",
+        "filenameTranscriptGuess": "Ti amo kiodái",
+        "category": "06-exclusivos-kyodai",
+        "transcriptVerified": false
       }
     ],
     "04-ausencias-desculpas": [
       {
-        "source": "Mulher-gamer-2026-10-14-05-17-Eu-fui-toma-bãnho.mp3",
-        "destination": "media/audios/04-ausencias-desculpas/fui_tomar_banho.mp3",
-        "transcript": "Eu fui tomar banho.",
-        "emotion": "cotidiana",
-        "tags": [
-          "ausência",
-          "explicação",
-          "rotina"
-        ]
+        "source": "Mulher-gamer-2026-10-14-05-12-[soft]-Desculpa-a-[emphasis]-demora,-[short-paus",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-12-[soft]-Desculpa-a-[emphasis]-demora,-[short-paus",
+        "bytes": 43535,
+        "blobSha": "5e72b2f4efd533aacac167eca2d0c1e7573a3929",
+        "filenameTranscriptGuess": "Desculpa a demora,",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
       },
       {
-        "source": "Mulher-gamer-2026-10-14-05-18-Eu-acabei-dormindo-hihihi.mp3",
-        "destination": "media/audios/04-ausencias-desculpas/acabei_dormindo.mp3",
-        "transcript": "Eu acabei dormindo, hihihi.",
-        "emotion": "fofa/descontraída",
-        "tags": [
-          "demora para responder",
-          "desculpa",
-          "sono"
-        ]
+        "source": "Mulher-gamer-2026-10-14-05-15-[embarrassed]-Desculpa-a-demora",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-15-[embarrassed]-Desculpa-a-demora",
+        "bytes": 19712,
+        "blobSha": "8c57b8cceec986c5a74705d6cf6c2df110423cc7",
+        "filenameTranscriptGuess": "Desculpa a demora",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-17-Eu-fui-toma-bãnho",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-17-Eu-fui-toma-bãnho",
+        "bytes": 24727,
+        "blobSha": "be4ea0cc01c94577275659e29bc16e72d2c7f6cf",
+        "filenameTranscriptGuess": "Eu fui toma bãnho",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-18-Eu-acabei-dormindo-hihihi",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-18-Eu-acabei-dormindo-hihihi",
+        "bytes": 30997,
+        "blobSha": "9c763bbcd9b69cfcd22f33f22a29c512d5a9b365",
+        "filenameTranscriptGuess": "Eu acabei dormindo hihihi",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-18-Eu-acabei-dormindo-hihihi (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-18-Eu-acabei-dormindo-hihihi (1)",
+        "bytes": 32250,
+        "blobSha": "6ccf837a4aafe65f81106fd09b8933cba679ced6",
+        "filenameTranscriptGuess": "Eu acabei dormindo hihihi",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-34-Desculpa,-[short-pause]-eu-estava-ocupada-[empha",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-34-Desculpa,-[short-pause]-eu-estava-ocupada-[empha",
+        "bytes": 60672,
+        "blobSha": "1d8078ddb457304edb60f25be8b2e85bf08f6bab",
+        "filenameTranscriptGuess": "Desculpa, eu estava ocupada",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-36-[embarrassed]-Eu-estava-falando-com-o-[emphasis]",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-36-[embarrassed]-Eu-estava-falando-com-o-[emphasis]",
+        "bytes": 30997,
+        "blobSha": "b0754d3cd4ee65cc5fadb95d67bfe909b971f763",
+        "filenameTranscriptGuess": "Eu estava falando com o",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-37-Eu-vi-sua-mensagem-[pause]-mais-acabei-esquecend",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-37-Eu-vi-sua-mensagem-[pause]-mais-acabei-esquecend",
+        "bytes": 62761,
+        "blobSha": "cab17a1230550533286f992af8f082607588a535",
+        "filenameTranscriptGuess": "Eu vi sua mensagem mais acabei esquecend",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-38-[emphasis]-Nem-vi-sua-menságem",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-38-[emphasis]-Nem-vi-sua-menságem",
+        "bytes": 28489,
+        "blobSha": "1726064757553baf15f0ca8b60693cc024a8c086",
+        "filenameTranscriptGuess": "Nem vi sua menságem",
+        "category": "04-ausencias-desculpas",
+        "transcriptVerified": false
       }
     ],
-    "05-encerrar-conversa": [],
-    "06-exclusivos-kyodai": []
+    "05-encerrar-conversa": [
+      {
+        "source": "Mulher-gamer-2026-10-14-05-33-Tô-indo.-Bai-bai",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-05-33-Tô-indo.-Bai-bai",
+        "bytes": 27235,
+        "blobSha": "a591bccd52826e5c4556de963e905665c0156430",
+        "filenameTranscriptGuess": "Tô indo Bai bai",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-10-Tchau-tchau",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-10-Tchau-tchau",
+        "bytes": 12188,
+        "blobSha": "3176d38e797e9b42c108d4e5beef0fe80a846939",
+        "filenameTranscriptGuess": "Tchau tchau",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-10-Tchau-tchau (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-10-Tchau-tchau (1)",
+        "bytes": 10099,
+        "blobSha": "b30158d136b9003c072790d901999b029d190029",
+        "filenameTranscriptGuess": "Tchau tchau",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-10-Vou-te-[emphasis]-bloquear",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-10-Vou-te-[emphasis]-bloquear",
+        "bytes": 27235,
+        "blobSha": "6927a2344468537935654c30b69282e3160726b5",
+        "filenameTranscriptGuess": "Vou te bloquear",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-10-Vou-te-[emphasis]-bloquear (1)",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-10-Vou-te-[emphasis]-bloquear (1)",
+        "bytes": 24727,
+        "blobSha": "8eb7c62fa28981224bd7e6e28a433fca076a88d8",
+        "filenameTranscriptGuess": "Vou te bloquear",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-11-Tchau-tchau",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-11-Tchau-tchau",
+        "bytes": 12188,
+        "blobSha": "0cd5912ccc266c04e72ca803c901734f14f3e724",
+        "filenameTranscriptGuess": "Tchau tchau",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-06-12-Beijos",
+        "currentPath": "media/audios/01-cumprimentos/Mulher-gamer-2026-10-14-06-12-Beijos",
+        "bytes": 13024,
+        "blobSha": "596dbffa5feb21c58bde8bdc3b5a34f806425f7b",
+        "filenameTranscriptGuess": "Beijos",
+        "category": "05-encerrar-conversa",
+        "transcriptVerified": false
+      }
+    ]
   }
 }
