@@ -546,6 +546,7 @@ async function sendTelegramVideo(chatId, fileName, caption = "") {
 }
 
 async function sendTelegramPhoto(chatId, relativePath, caption = "", replyMarkup = null) {
+  if (relativePath && typeof relativePath === "object" && relativePath.fileId) return sendTelegramStoredMedia(chatId, relativePath, caption);
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
   if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de foto inválido.");
   const bytes = await readFile(join(PHOTO_DIR, relativePath));
@@ -565,90 +566,42 @@ async function sendTelegramPhoto(chatId, relativePath, caption = "", replyMarkup
 }
 
 async function chooseTelegramPhoto(messageText) {
-  const normalized = String(messageText || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
-  let category = "02-selfies";
-  if (/(unha|esmalte|manicure|pintando as unha)/.test(normalized)) category = "03-unhas";
-  else if (/(comida|comendo|almoco|jantar|lanche|cafe|fome|doce|pizza)/.test(normalized)) category = "04-comidas";
-  else if (/(look|roupa|vestido|blusa|calca|outfit|me vesti)/.test(normalized)) category = "05-looks";
-  else if (/(fazendo|atividade|academia|estudando|passeio|trabalhando|rotina)/.test(normalized)) category = "06-atividades";
-  else if (/(perfil|foto de perfil)/.test(normalized)) category = "01-perfil";
-  const folders = [category, "02-selfies", "01-perfil", "05-looks", "06-atividades", "07-rotina", "04-comidas", "03-unhas"];
+  const normalized = normalizeMediaText(messageText);
+  const categories = [];
+  if (/(unha|esmalte|manicure)/.test(normalized)) categories.push("unhas");
+  if (/(comida|comendo|almoco|jantar|lanche|cafe|fome|doce|pizza)/.test(normalized)) categories.push("comidas");
+  if (/(look|roupa|vestido|blusa|calca|outfit|me vesti)/.test(normalized)) categories.push("looks");
+  if (/(fazendo|atividade|academia|estudando|passeio|trabalhando|rotina)/.test(normalized)) categories.push("atividades");
+  if (/(perfil|avatar)/.test(normalized)) categories.push("perfil");
+  if (/(selfie|foto|imagem|fotos)/.test(normalized)) categories.push("fotos");
+  categories.push("fotos", "perfil", "looks", "atividades", "comidas", "unhas", "geral");
   const seen = new Set();
-  for (const folder of folders) {
-    if (seen.has(folder)) continue;
-    seen.add(folder);
-    try {
-      const entries = await readdir(join(PHOTO_DIR, folder), { withFileTypes: true });
-      const photos = entries.filter(entry => entry.isFile() && /\.(jpe?g|png|webp)$/i.test(entry.name)).map(entry => folder + "/" + entry.name);
-      if (photos.length) return { path: photos[Math.floor(Math.random() * photos.length)], category: folder };
-    } catch {}
+  for (const category of categories) {
+    if (seen.has(category)) continue;
+    seen.add(category);
+    const found = await getTelegramMedia(category, ["photo"]);
+    if (found.length) return found[Math.floor(Math.random() * found.length)];
   }
   return null;
 }
 
 async function chooseTelegramAudio(sourceMessage, reply) {
-  const folder = join(AUDIO_DIR, "01-cumprimentos");
-  let files;
-  try {
-    files = await readdir(folder, { withFileTypes: true });
-  } catch {
-    console.error("Pasta de áudios não encontrada no deploy:", folder);
-    return null;
+  const source = normalizeMediaText(sourceMessage);
+  const answer = normalizeMediaText(reply);
+  let categories = [];
+  if (/^(oi+|ola+|oie+|e ai|eae|opa+|salve|bom dia|boa tarde|boa noite|hey|hi|hello)\b/.test(source)) categories = ["cumprimentos"];
+  else if (/(saudade|sumida|sumido|carinho|beijo|amor|boa noite|dormir)/.test(source + " " + answer)) categories = ["carinho", "cumprimentos"];
+  else if (/(kkkk+|hahaha|risada|rindo)/.test(source)) categories = ["risadas"];
+  else categories = ["audios", "geral", "cumprimentos"];
+  for (const category of categories) {
+    const found = await getTelegramMedia(category, ["audio", "voice"]);
+    if (found.length) return found[Math.floor(Math.random() * found.length)];
   }
-
-  // Os áudios enviados ao repositório não têm extensão. Ignoramos ZIPs e arquivos de documentação.
-  const audioFiles = files
-    .filter(file => file.isFile() && !/\.(zip|json|md|txt)$/i.test(file.name))
-    .map(file => file.name)
-    .filter(name => !/(bucet|me-fode|machuca-minha|sexo)/i.test(name));
-
-  if (!audioFiles.length) return null;
-  const normalize = value => String(value || "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, " ").trim();
-  const source = normalize(sourceMessage);
-  const answer = normalize(reply);
-  const choose = pattern => {
-    const matches = audioFiles.filter(name => pattern.test(normalize(name)));
-    if (!matches.length) return null;
-    return "01-cumprimentos/" + matches[Math.floor(Math.random() * matches.length)];
-  };
-
-  if (/^(oi+|ola+|oie+|e ai|eae|opa+|salve|bom dia|boa tarde|boa noite|hey|hi|hello)\b/.test(source)) {
-    return choose(/\b(oi+|ola+|oie+|opa+|salve)\b/);
-  }
-  if (/(tudo bem|como (tu|voce) ta|como (tu|voce) esta|como ce ta|como ce esta|como vai|como voce se sente)/.test(source)) {
-    return choose(/estou bem|tudo bem no que posso ajudar/);
-  }
-  if (/(nao falou comigo hoje|sentiu minha falta|saudade|sumida|sumido)/.test(source) || /nao falou comigo|nao me responde/.test(answer)) {
-    return choose(/nao falou comigo|nao me responde/);
-  }
-  if (/(foi tomar banho|tomar banho|cade tu|onde tu tava|onde voce tava)/.test(source)) {
-    return choose(/fui toma banho/);
-  }
-  if (/(dormiu|foi dormir|por que demorou|pq demorou|demorou pra responder)/.test(source)) {
-    return choose(/acabei dormindo/);
-  }
-  if (/(cansado|cansada|exausto|exausta|sono)/.test(source) || /apenas um pouco|estou com sono/.test(answer)) {
-    return choose(/estou com sono|apenas um pouco/);
-  }
-  if (/(o que ta fazendo|oque ta fazendo|que ta fazendo)/.test(source)) {
-    return choose(/oque ta fazendo/);
-  }
-  if (/instagram/.test(source)) return choose(/voce tem instagram/);
-  if (/(nao entendi|como assim)/.test(source) || /nao entendi/.test(answer)) return choose(/nao entendi/);
-  if (/(cometeu um engano|isso e um engano)/.test(source) || /cometeu um engano/.test(answer)) return choose(/cometeu um engano/);
-  if (/serio/.test(source)) return choose(/serio/);
-  if (/^(tchau|adeus|falou|beijos|beijo)/.test(source)) return choose(/tchau tchau|beijos/);
-  if (/bloquear|bloqueia/.test(source)) return choose(/vou te bloquear/);
-  if (/desculpa|foi mal/.test(source)) return choose(/desculpa a demora/);
-  if (/gostou/.test(source)) return choose(/gostou/);
-  if (/(sim|concordo|pode ser)/.test(source)) return choose(/sim|talvez/);
-  if (/(criador|quem te criou)/.test(source)) return choose(/meu criador/);
-  if (/vou te mandar|manda/.test(source)) return choose(/vou te mandar uma coisa/);
   return null;
 }
+
 async function sendTelegramAudio(chatId, relativePath) {
+  if (relativePath && typeof relativePath === "object" && relativePath.fileId) return sendTelegramStoredMedia(chatId, relativePath);
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
   if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de áudio inválido.");
 
@@ -997,21 +950,13 @@ async function answerTelegramCallback(q) {
       body:JSON.stringify({callback_query_id:q.id,text:"Preparando o vídeo…"}),
       signal:AbortSignal.timeout(8000)
     }).catch(()=>{});
-    let videos = [];
-    try {
-      videos = (await readdir(ADULT_VIDEO_DIR, { withFileTypes: true }))
-        .filter(entry => entry.isFile() && /\.(mp4|mov|m4v|webm)$/i.test(entry.name))
-        .map(entry => entry.name)
-        .sort((a, b) => a.localeCompare(b, "pt-BR"));
-    } catch (error) {
-      recordDiagnosticError("telegram.adult_video_list", error);
-    }
+    const videos = await getTelegramMedia("adultos", ["video", "animation", "document"]);
     if (!videos[index]) {
-      if (chatId !== undefined) await sendTelegramText(chatId, "Esse vídeo não está mais disponível. Envie /18 para atualizar a lista.");
+      if (chatId !== undefined) await sendTelegramText(chatId, "Essa mídia não está mais disponível. Envie /18 para atualizar a lista.");
       return;
     }
     try {
-      const sent = await sendTelegramVideo(chatId, videos[index], "🔞 Biblioteca privada");
+      const sent = await sendTelegramStoredMedia(chatId, videos[index], "🔞 Biblioteca privada");
       addRuntimeEvent("info", "Vídeo escolhido manualmente enviado pelo comando /18", { index });
       if (sent?.message_id) {
         const targetChatId = chatId;
@@ -1137,59 +1082,46 @@ async function processTelegramUpdate(update) {
       await sendTelegramText(chatId, "Esse teste de áudio é exclusivo do criador da Ayla.");
       return;
     }
-    const folderName = "Ransom - aqui vou colocar audios novos";
-    let files = [];
-    try {
-      files = (await readdir(join(AUDIO_DIR, folderName), { withFileTypes: true }))
-        .filter(entry => entry.isFile() && /\.(mp3|wav|ogg|m4a|aac|opus|flac)$/i.test(entry.name))
-        .map(entry => entry.name);
-    } catch (error) {
-      recordDiagnosticError("telegram.test_audio_list", error);
-    }
-    if (!files.length) {
-      await sendTelegramText(chatId, "Ainda não encontrei os MP3s da pasta Ransom no deploy. O servidor precisa terminar o deploy com os arquivos de áudio.");
+    const audios = await getTelegramMedia("geral", ["audio", "voice"]);
+    const greetingAudios = await getTelegramMedia("cumprimentos", ["audio", "voice"]);
+    const available = [...greetingAudios, ...audios].filter((item, index, all) => all.findIndex(other => other.fileId === item.fileId) === index);
+    if (!available.length) {
+      await sendTelegramText(chatId, "Ainda não recebi áudios dos canais. Publica um áudio novo em um dos canais com a Ayla como administradora e tenta /audio de novo.");
       return;
     }
-    const selected = files[Math.floor(Math.random() * files.length)];
-    await sendTelegramText(chatId, "Escolhi um áudio aleatório da pasta Ransom pra ti, Kyodai 🎧");
+    const selected = available[Math.floor(Math.random() * available.length)];
     try {
-      const sent = await sendTelegramAudio(chatId, folderName + "/" + selected);
-      if (!sent) await sendTelegramText(chatId, "Não consegui enviar o arquivo de áudio. Confere o diagnóstico do servidor.");
+      await sendTelegramText(chatId, "Escolhi um áudio da biblioteca dos canais do Telegram, Kyodai 🎧");
+      await sendTelegramAudio(chatId, selected);
     } catch (error) {
       recordDiagnosticError("telegram.test_audio_send", error);
-      await sendTelegramText(chatId, "Tentei mandar o áudio, mas o Telegram recusou o envio. Abre /status pra conferir o erro.");
+      await sendTelegramText(chatId, "O Telegram recusou esse áudio. Confere o diagnóstico do servidor.");
     }
     return;
   }
+
   if (text === "/18" || text.startsWith("/18@")) {
     if (!isKyodai || message?.chat?.type !== "private") {
       await sendTelegramText(chatId, "🔞 Esse comando funciona somente no PV do criador autorizado.");
       return;
     }
-    let videos = [];
-    try {
-      videos = (await readdir(ADULT_VIDEO_DIR, { withFileTypes: true }))
-        .filter(entry => entry.isFile() && /\.(mp4|mov|m4v|webm)$/i.test(entry.name))
-        .map(entry => entry.name)
-        .sort((a, b) => a.localeCompare(b, "pt-BR"));
-    } catch (error) {
-      recordDiagnosticError("telegram.adult_video_list", error);
-    }
+    const videos = await getTelegramMedia("adultos", ["video", "animation", "document"]);
     if (!videos.length) {
-      await sendTelegramText(chatId, "🔞 Ainda não encontrei vídeos em media/18+. Envie vídeos MP4, MOV, M4V ou WEBM para essa pasta no GitHub e aguarde o deploy.");
+      await sendTelegramText(chatId, "🔞 Ainda não recebi vídeos do canal 18+. Confere se a Ayla é administradora e publica novamente os vídeos depois deste deploy.");
       return;
     }
     const rows = [];
     for (let i = 0; i < videos.length; i += 2) {
-      rows.push(videos.slice(i, i + 2).map((name, offset) => ({
-        text: (i + offset + 1) + ". " + name.slice(0, 45),
+      rows.push(videos.slice(i, i + 2).map((item, offset) => ({
+        text: (i + offset + 1) + ". " + String(item.caption || item.fileName || "Vídeo " + (i + offset + 1)).slice(0, 35),
         callback_data: "adultvideo:" + (i + offset)
       })));
     }
     rows.push([{ text: "✖ Fechar lista", callback_data: "adultvideo:close" }]);
-    await sendTelegramText(chatId, "🔞 **BIBLIOTECA DE VÍDEOS**\n\nEscolhe qual vídeo quer receber. A mensagem enviada será apagada pelo bot após 40 minutos, se o bot continuar online.", { inline_keyboard: rows });
+    await sendTelegramText(chatId, "🔞 BIBLIOTECA PRIVADA\n\nEscolhe qual mídia quer receber. A mensagem enviada será apagada após 40 minutos, se o bot continuar online.", { inline_keyboard: rows });
     return;
   }
+
   if (text === "/login" || text === "/adm" || text === "/login_admin") {
     if (!isKyodai) {
       await sendTelegramText(chatId, "🔒 Acesso administrativo restrito. Só o criador autorizado pode iniciar esse login.");
@@ -1388,7 +1320,7 @@ async function processTelegramUpdate(update) {
       const chosenPhoto = await chooseTelegramPhoto(text);
       const photoReply = chosenPhoto
         ? "Uma fotinha pra você, " + (isKyodai ? "senhor" : (profile.displayName || "aí")) + " 💗"
-        : "Queria te mandar sim 💗 Mas ainda não encontrei fotos nas pastas do deploy. Confere se as imagens foram enviadas ao GitHub nas pastas media/fotos e se o Render já fez o deploy.";
+        : "Queria te mandar sim 💗 Mas ainda não encontrei fotos nos canais da biblioteca. Publica uma foto nova no canal correspondente e tenta de novo.";
       rememberConversationEvent(profile, { role: "user", text, at: Date.now() });
       rememberConversationEvent(profile, { role: "assistant", text: photoReply, at: Date.now() });
       await saveProfile(userId, profile);
