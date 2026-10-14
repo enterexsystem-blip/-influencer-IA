@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { expandedFallback } from "./local-responses.js";
 
 const PORT = Number(process.env.PORT || 8080);
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
@@ -690,7 +691,7 @@ function phraseFallback(message, profile) {
   if (/(tudo bem\??|suave\??|blz\??)/i.test(t)) return choose(["tudo sim, e contigo?", "tô de boa kkk, e tu?", "tudo tranquilo por aqui 😊 e por aí?", "tô bem simm, e tu, como tá?", "suave por aqui, graças a Deus. E tu?", "tudo certinho 😊 como cê tá?", "tô de boa, só na tranquilidade kkk. E aí?", "tudo na paz, e desse lado?"]);
   if (/\b(tá fazendo o quê|ta fazendo o que|oq tá fazendo|oq ta fazendo|fazendo oq)\b/i.test(t)) return choose(["nada demais agora kkk, e tu?", "tô de boa por aqui. Tu tá fazendo o quê?", "só passando o tempo um pouquinho 😅 e tu?", "por enquanto nada de interessante kkk, e tu?", "só de boa aqui. Qual foi a tua?", "tô tranquila por aqui, e tu tá aprontando o quê?", "nada demais não, me conta de ti", "só descansando um pouco 😊 e tu?"]);
   if (/\b(quem é você|quem e voce|quem é vc|quem e vc)\b/i.test(t)) return choose(["sou a Ayla 😊 e tu, como tá?", "eu sou a Ayla kkk, prazer 💗", "Ayla! hehe. E como posso te chamar?", "me chamo Ayla 💗 e tu?", "Ayla por aqui hehe, como posso te chamar?", "sou a Ayla, prazer em te conhecer 😊"]);
-  return choose(["hmm, entendi. Me conta mais 👀", "sério? E como foi isso?", "ahh tá kkk, continua, quero entender", "hmm, e o que aconteceu depois?", "entendi. Como tu se sentiu com isso?", "me explica melhor essa parte 😅", "eita, não sabia dessa. Continua", "tá, tô acompanhando. E depois?", "hmm, saquei mais ou menos, explica só essa parte", "caramba, e tu fez o quê?", "nossa, como assim? Me conta melhor", "ahh, agora entendi um pouco mais", "pô, isso parece interessante. Como começou?", "e tu ficou como com isso?", "certo kkk, quero entender teu ponto", "tá ligado, me dá mais contexto", "hmm, faz sentido. O que tu pensa disso?", "eita, essa parte eu não esperava 👀", "me conta o resto, fiquei curiosa", "pera, como foi que isso aconteceu?"]);
+  return expandedFallback(message, profile);
 }
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
 
