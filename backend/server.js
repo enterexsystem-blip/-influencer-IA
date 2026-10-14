@@ -183,8 +183,8 @@ async function generateFishAudio(text, referenceId = FISH_AUDIO_REFERENCE_ID) {
   return bytes;
 }
 
-async function saveAylaAudioToGitHub(text) {
-  const audio = await generateFishAudio(text);
+async function saveAylaAudioToGitHub(text, referenceId = FISH_AUDIO_REFERENCE_ID) {
+  const audio = await generateFishAudio(text, referenceId);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const suffix = createHash("sha256").update(text + Date.now()).digest("hex").slice(0, 8);
   const path = "media/audios/atualizacao/ayla-" + stamp + "-" + suffix + ".mp3";
@@ -1410,7 +1410,7 @@ const server = createServer(async (req, res) => {
       if (!text) return send(res, 400, { error: "Escreva o texto que a Ayla deve falar." });
       if (text.length > 4000) return send(res, 413, { error: "O texto passou do limite de 4.000 caracteres." });
       const referenceId = String(body.referenceId || FISH_AUDIO_REFERENCE_ID).trim();
-      const saved = await saveAylaAudioToGitHub(text);
+      const saved = await saveAylaAudioToGitHub(text, referenceId);
       return send(res, 200, {
         ok: true,
         path: saved.path,
