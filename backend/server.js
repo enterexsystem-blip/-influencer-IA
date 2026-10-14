@@ -878,6 +878,42 @@ function phraseFallback(message, profile) {
   }
 
   const previousAssistant = [...(profile.conversationEvents || [])].reverse().find(event => event.role === "assistant")?.text || "";
+
+  // Responde ao conteúdo da mensagem e ao contexto: se Ayla perguntou como a pessoa está,
+  // reconhece "tô bem" como resposta e continua a conversa sem perguntar a mesma coisa de novo.
+  const askedHowUserIs = /(como (tu|cê|voce|você) (t[aá]|est[aá])|como (vai|anda)|tudo bem contigo|tudo certo por a[ií]|como (voc[eê]|tu) est[aá] se sentindo)/i.test(previousAssistant);
+  if (askedHowUserIs && /\\b(t[oô] bem|estou bem|t[aá] tudo bem|tudo certo|tudo tranquilo|tudo na paz|suave|de boa|bem sim|t[oô] legal|estou legal|t[oô] ótima?|t[oô] ótimo|melhor agora)\\b/i.test(t)) {
+    return choose([
+      "aaah, que bom 💗 fico feliz. O que tu tá fazendo agora?",
+      "que bomm 😊 teu dia tá sendo tranquilo também?",
+      "aí sim, mn 💗 aconteceu alguma coisa boa hoje ou tá só de boa mesmo?",
+      "fico feliz em saber 🥹 como foi teu dia até aqui?",
+      "own, que bom que tu tá bem 💗 tá fazendo o quê por aí?",
+      "hmm, gostei de saber 😊 me conta uma novidade tua.",
+      "que ótimo! ✨ hoje foi de boa contigo ou foi corrido?",
+      "ainda bemm 💗 e o que tu anda aprontando hoje?",
+      "boa 😊 tá descansando ou tá no corre agora?",
+      "que bom, de verdade 💗 tem algum plano pra hoje?"
+    ]);
+  }
+  if (askedHowUserIs && /\\b(mais ou menos|nem bem nem mal|indo|levando|na medida do poss[ií]vel|j[aá] estive melhor|podia estar melhor)\\b/i.test(t)) {
+    return choose([
+      "hmm, entendi… foi alguma coisa que aconteceu ou só um dia meio assim? 💗",
+      "ahh, saquei. Quer me contar o que tá deixando as coisas mais ou menos?",
+      "entendi, mn. Espero que melhore um pouquinho. Teu dia foi puxado?",
+      "sei… tem dias assim mesmo. Quer conversar sobre isso ou prefere distrair a cabeça?",
+      "poxa, tomara que fique melhor 💗 aconteceu algo ou tu só tá cansado?"
+    ]);
+  }
+  if (askedHowUserIs && /\\b(mal|n[aã]o t[oô] bem|n[aã]o estou bem|p[eé]ssim[oa]|triste|cansad[oa]|exaust[oa])\\b/i.test(t)) {
+    return choose([
+      "poxa, sinto muito 🥺 aconteceu alguma coisa?",
+      "ahh, vem cá… quer me contar o que houve? 💗",
+      "entendi, mn. Foi um dia difícil ou tem algo te preocupando?",
+      "sinto muito que tu esteja assim. Quer desabafar ou prefere conversar sobre outra coisa?",
+      "ei, tô te ouvindo. O que tá pegando?"
+    ]);
+  }
   if (/^(sim+|s|ss|isso|exato|aham|uhum|claro)[!.?\s]*$/i.test(t)) {
     if (/(quer me contar|quer conversar|quer desabafar|pode falar|me conta)/i.test(previousAssistant)) return choose(["pode falar, tô te ouvindo. Vai no teu tempo 💗", "tô aqui, pode me contar o que aconteceu.", "fala comigo, sem pressa. Quero entender direitinho."]);
     if (/(como tu tá|como cê tá|tudo bem|tudo certo|tudo tranquilo)/i.test(previousAssistant)) return choose(["que bom 😊 e como tá sendo teu dia?", "aí sim. Aconteceu alguma coisa interessante hoje?", "fico feliz em saber. O que tu tá fazendo agora?"]);
