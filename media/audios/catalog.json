@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "note": "Catálogo dos MP3 recebidos no chat. Os arquivos-fonte continuam como anexos da conversa; copiar os binários para os caminhos abaixo ainda é necessário para o backend conseguir reproduzi-los.",
+  "categories": {
+    "01-cumprimentos": [
+      {
+        "source": "Mulher-gamer-2026-10-14-04-08-Oi.-[excited].mp3",
+        "destination": "media/audios/01-cumprimentos/oi_animado.mp3",
+        "transcript": "Oi.",
+        "emotion": "animada",
+        "tags": [
+          "oi",
+          "saudação",
+          "energia alta"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-09-Oi.-[pause].tudo-bem-No-que-posso-ajudar[breathy.mp3",
+        "destination": "media/audios/01-cumprimentos/oi_tudo_bem_posso_ajudar.mp3",
+        "transcript": "Oi… tudo bem? No que posso ajudar?",
+        "emotion": "calma",
+        "tags": [
+          "oi",
+          "pergunta",
+          "disponibilidade"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-07-Oi.-[emphasis].mp3",
+        "destination": "media/audios/01-cumprimentos/oi_enfatizado.mp3",
+        "transcript": "Oi.",
+        "emotion": "enfatizada",
+        "tags": [
+          "oi",
+          "ênfase"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-07-Oi.-[whispering].mp3",
+        "destination": "media/audios/01-cumprimentos/oi_sussurrado.mp3",
+        "transcript": "Oi.",
+        "emotion": "sussurrada",
+        "tags": [
+          "oi",
+          "sussurro",
+          "íntimo"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-06-Oi.-[sad].mp3",
+        "destination": "media/audios/01-cumprimentos/oi_triste.mp3",
+        "transcript": "Oi.",
+        "emotion": "triste",
+        "tags": [
+          "oi",
+          "tristeza"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-06-Oi.-[embarrassed].mp3",
+        "destination": "media/audios/01-cumprimentos/oi_envergonhado.mp3",
+        "transcript": "Oi.",
+        "emotion": "envergonhada",
+        "tags": [
+          "oi",
+          "timidez",
+          "vergonha"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-05-Oiiii.-[angry].mp3",
+        "destination": "media/audios/01-cumprimentos/oi_irritado.mp3",
+        "transcript": "Oiiii.",
+        "emotion": "irritada",
+        "tags": [
+          "oi",
+          "irritação"
+        ]
+      }
+    ],
+    "02-respostas-curtas": [
+      {
+        "source": "Mulher-gamer-2026-10-14-04-12-Estou-bem-[emphasis]-[pause]-obrigada.mp3",
+        "destination": "media/audios/02-respostas-curtas/estou_bem_obrigada.mp3",
+        "transcript": "Estou bem, obrigada.",
+        "emotion": "positiva/neutra",
+        "tags": [
+          "como você está",
+          "estou bem",
+          "obrigada"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-04-13-[tired]-Estou.-[short-pause]-Apenas-um-pouco-de.mp3",
+        "destination": "media/audios/02-respostas-curtas/estou_apenas_um_pouco_cansada.mp3",
+        "transcript": "Estou. Apenas um pouco de…",
+        "emotion": "cansada",
+        "tags": [
+          "cansaço",
+          "resposta curta"
+        ],
+        "transcriptNeedsReview": true
+      }
+    ],
+    "03-emocoes": [
+      {
+        "source": "Mulher-gamer-2026-10-14-03-58-Não-falou-comigo,-hoje.[sad].mp3",
+        "destination": "media/audios/03-emocoes/nao_falou_comigo_hoje_triste.mp3",
+        "transcript": "Não falou comigo hoje.",
+        "emotion": "triste",
+        "tags": [
+          "saudade",
+          "tristeza",
+          "ausência"
+        ]
+      }
+    ],
+    "04-ausencias-desculpas": [
+      {
+        "source": "Mulher-gamer-2026-10-14-05-17-Eu-fui-toma-bãnho.mp3",
+        "destination": "media/audios/04-ausencias-desculpas/fui_tomar_banho.mp3",
+        "transcript": "Eu fui tomar banho.",
+        "emotion": "cotidiana",
+        "tags": [
+          "ausência",
+          "explicação",
+          "rotina"
+        ]
+      },
+      {
+        "source": "Mulher-gamer-2026-10-14-05-18-Eu-acabei-dormindo-hihihi.mp3",
+        "destination": "media/audios/04-ausencias-desculpas/acabei_dormindo.mp3",
+        "transcript": "Eu acabei dormindo, hihihi.",
+        "emotion": "fofa/descontraída",
+        "tags": [
+          "demora para responder",
+          "desculpa",
+          "sono"
+        ]
+      }
+    ],
+    "05-encerrar-conversa": [],
+    "06-exclusivos-kyodai": []
+  }
+}
