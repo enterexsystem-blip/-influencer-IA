@@ -473,11 +473,23 @@ async function deliverScheduledTelegramReply(job) {
         }
       }
       if (audioAvailable) {
-        await simulateTelegramTyping(chatId, sourceMessage);
-        await sendTelegramAudio(chatId, audioPath);
-        runtimeDiagnostics.audioSent += 1;
-        runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
-        console.log("Áudio original da Ayla enviado:", audioPath);
+        try {
+          await simulateTelegramTyping(chatId, sourceMessage);
+          await sendTelegramAudio(chatId, audioPath);
+          runtimeDiagnostics.audioSent += 1;
+          runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
+          console.log("Áudio original da Ayla enviado:", audioPath);
+        } catch (audioError) {
+          recordDiagnosticError("telegram.audio_send", audioError);
+          console.error("Falha no envio do áudio da Ayla:", audioError?.message || "erro");
+          if (!isBothReply) {
+            await sendTelegramText(chatId, replyText);
+            runtimeDiagnostics.repliesSent += 1;
+            runtimeDiagnostics.textFallbacks += 1;
+            runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
+            console.warn("Ayla enviou texto como alternativa após falha no envio do áudio.");
+          }
+        }
       }
     } else {
       await simulateTelegramTyping(chatId, sourceMessage);
