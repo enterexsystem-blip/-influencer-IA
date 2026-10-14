@@ -330,13 +330,13 @@ async function processTelegramUpdate(update) {
     return;
   }
   if (text === "/menu" || text === "/ajuda" || text === "/help") {
-    await sendTelegramText(chatId, "💗 MENU DA AYLA\n\n/start — iniciar conversa\n/menu — ver comandos\n/id — mostrar seu ID numérico\n/modo texto — responder por escrito\n/modo audio — preferir áudio (biblioteca ainda precisa ser adicionada)\n/modo ambos — texto e áudio (biblioteca ainda precisa ser adicionada)\n/status — ver configurações atuais\n\nPode conversar comigo normalmente a qualquer momento.");
+    await sendTelegramText(chatId, "💗 MENU DA AYLA\n\n/start — iniciar conversa\n/menu — ver comandos\n/id — mostrar seu ID numérico\n/modo texto — responder por escrito\n/modo audio — preferir áudio (biblioteca ainda precisa ser adicionada)\n/modo ambos — texto e áudio (biblioteca ainda precisa ser adicionada)\n/status — ver configurações atuais\n/nivel 1 — responder em segundos\n/nivel 2 — demorar de 1 minuto a 1 hora\n/nivel 3 — poder não responder\n/nivel 4 — variar entre os três níveis\n\nPode conversar comigo normalmente a qualquer momento.");
     return;
   }
   if (text === "/status") {
     const profile = await loadProfile(userId);
     const mode = ["texto","audio","ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
-    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nÁudios personalizados: ainda não disponíveis no backend; aguardando os arquivos.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
+    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: ainda não disponíveis no backend; aguardando os arquivos.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
     return;
   }
   if (text.startsWith("/modo")) {
