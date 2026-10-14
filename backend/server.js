@@ -224,7 +224,7 @@ async function sendTelegramTyping(chatId) {
 
 function chooseTelegramDelay(message) {
   const text = String(message || "").trim();
-  const complexity = Math.min(3500, Math.floor(text.length * 18));
+  const complexity = Math.min(6500, Math.floor(text.length * 35));
   return Math.min(10000, 900 + Math.floor(Math.random() * 2600) + complexity);
 }
 
