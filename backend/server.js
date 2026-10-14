@@ -662,8 +662,8 @@ async function processTelegramUpdate(update) {
     await saveProfile(userId, profile);
     const notes = {
       texto: "Modo somente texto ativado. Vou responder por mensagem escrita.",
-      audio: "Modo somente áudio ativado. Sem gravação compatível, posso ficar em silêncio.",
-      ambos: "Modo texto e áudio ativado. Vou escolher entre resposta escrita e áudio."
+      audio: "Modo somente áudio ativado. Se não houver gravação compatível, envio a resposta em texto para não deixar você sem retorno.",
+      ambos: "Modo texto e áudio ativado. Envio o texto e acrescento uma gravação quando houver áudio compatível."
     };
     await sendTelegramText(chatId, "Prontinho 💗 " + notes[requestedMode]);
     return;
