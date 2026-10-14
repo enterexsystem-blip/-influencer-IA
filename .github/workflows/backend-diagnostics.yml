@@ -53,12 +53,6 @@ jobs:
         working-directory: backend
         run: npm test
 
-      - name: Build diagnostic report
-        working-directory: backend
-        env:
-          DIAGNOSTICS_REPORT_PATH: diagnostics-report.json
-        run: node scripts/diagnose.js
-
       - name: Upload diagnostic report
         if: always()
         uses: actions/upload-artifact@v4
