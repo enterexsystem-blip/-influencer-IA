@@ -299,6 +299,7 @@ async function sendTelegramText(chatId, text, replyMarkup = null) {
     console.error("Telegram sendMessage falhou:", response.status, data.description || "resposta inválida");
     throw new Error("A API do Telegram não aceitou a mensagem: " + String(data.description || response.status).slice(0, 200));
   }
+  return data.result;
 }
 
 async function chooseTelegramAudio(sourceMessage, reply) {
@@ -971,13 +972,8 @@ async function processTelegramUpdate(update) {
             [{ text: "🔌 Autorizar troca", callback_data: "failover:approve" }, { text: "Não, permanecer", callback_data: "failover:deny" }],
             [{ text: "🩺 Abrir diagnóstico", url: diagnosticUrl }]
           ] });
-          const state = { creatorId: senderId, chatId, messageId: null, sourceText: text, extraInstructions: "" };
+          const state = { creatorId: senderId, chatId, messageId: sent?.message_id || null, sourceText: text, extraInstructions: "" };
           pendingFailovers.set(senderId, state);
-          // A mensagem de autorização é a última enviada; guardar o message_id é necessário para editar a contagem.
-          try {
-            const recent = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/getUpdates", { signal: AbortSignal.timeout(4000) });
-            void recent;
-          } catch {}
         }
       }
     } catch (sendError) {
