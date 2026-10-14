@@ -481,7 +481,31 @@ async function sendTelegramAudio(chatId, relativePath) {
     console.error("Telegram sendAudio falhou:", response.status, description);
     throw new Error("Telegram sendAudio falhou (" + response.status + "): " + description);
   }
-  return true;
+  const sentMessage = data.result || {};
+  const messageId = sentMessage.message_id;
+  const durationSeconds = Number(sentMessage.audio?.duration || 0);
+  // O Telegram não informa quando a pessoa termina de ouvir. Apagamos após a
+  // duração reportada pelo áudio + 8s de margem, para dar tempo de escutar.
+  if (messageId) {
+    const deleteAfterMs = Math.max(15000, (durationSeconds + 8) * 1000);
+    setTimeout(async () => {
+      try {
+        const deleteResponse = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+          signal: AbortSignal.timeout(8000)
+        });
+        const deleteData = await deleteResponse.json().catch(() => ({}));
+        if (!deleteResponse.ok || deleteData.ok !== true) {
+          console.warn("Não foi possível apagar o áudio automaticamente:", deleteData.description || deleteResponse.status);
+        }
+      } catch (error) {
+        recordDiagnosticError("telegram.audio_auto_delete", error);
+      }
+    }, deleteAfterMs);
+  }
+  return { messageId, durationSeconds };
 }
 
 async function sendTelegramTyping(chatId) {
@@ -560,14 +584,18 @@ async function deliverScheduledTelegramReply(job) {
       return;
     }
     const sourceMessage = job.source_message ?? job.sourceMessage ?? "";
-    const storedReply = String(job.reply || "");
-    const isBothReply = storedReply.startsWith("__AYLA_BOTH__");
-    const isAudioReply = storedReply.startsWith("__AYLA_AUDIO__") || isBothReply;
-    const replyText = isBothReply
-      ? storedReply.slice("__AYLA_BOTH__".length)
-      : storedReply.startsWith("__AYLA_AUDIO__")
-        ? storedReply.slice("__AYLA_AUDIO__".length)
-        : storedReply;
+    let storedReply = String(job.reply || "");
+    const isChoiceReply = storedReply.startsWith("__AYLA_CHOICE__");
+    if (isChoiceReply) {
+      storedReply = storedReply.slice("__AYLA_CHOICE__".length);
+      // Escolha equilibrada: uma resposta em texto OU uma em áudio.
+      storedReply = Math.random() < 0.5 ? "__AYLA_AUDIO__" + storedReply : storedReply;
+    }
+    const isBothReply = false;
+    const isAudioReply = storedReply.startsWith("__AYLA_AUDIO__");
+    const replyText = isAudioReply
+      ? storedReply.slice("__AYLA_AUDIO__".length)
+      : storedReply;
 
     if (isAudioReply) {
       const audioPath = await chooseTelegramAudio(sourceMessage, replyText);
@@ -581,7 +609,7 @@ async function deliverScheduledTelegramReply(job) {
           recordDiagnosticError("telegram.audio_file_missing", new Error("Arquivo de áudio compatível não acessível"));
         }
       }
-      if (isBothReply || !audioAvailable) {
+      if (!audioAvailable) {
         await simulateTelegramTyping(chatId, sourceMessage);
         await sendTelegramText(chatId, replyText);
         runtimeDiagnostics.repliesSent += 1;
@@ -597,6 +625,7 @@ async function deliverScheduledTelegramReply(job) {
           await simulateTelegramTyping(chatId, sourceMessage);
           await sendTelegramAudio(chatId, audioPath);
           runtimeDiagnostics.audioSent += 1;
+          runtimeDiagnostics.repliesSent += 1;
           runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
           console.log("Áudio original da Ayla enviado:", audioPath);
         } catch (audioError) {
@@ -630,8 +659,9 @@ async function deliverScheduledTelegramReply(job) {
 async function scheduleTelegramReply(chatId, reply, sourceMessage, delayMs, responseMode = "texto") {
   const dueAt = new Date(Date.now() + delayMs);
   // Em "ambos", manda sempre o texto e acrescenta um áudio compatível quando houver gravação.
+  // "ambos" significa escolher um único formato por resposta, nunca enviar os dois.
   const storedReply = responseMode === "ambos"
-    ? "__AYLA_BOTH__" + String(reply || "")
+    ? "__AYLA_CHOICE__" + String(reply || "")
     : responseMode === "audio"
       ? "__AYLA_AUDIO__" + String(reply || "")
       : String(reply || "");
