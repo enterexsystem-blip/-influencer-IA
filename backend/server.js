@@ -441,7 +441,7 @@ async function recoverScheduledTelegramReplies() {
 
 function aylaMenuKeyboard() {
   return { inline_keyboard: [
-    [{ text: "🎙️ SOMENTE ÁUDIO ✓", callback_data: "ayla:audio" }],
+    [{ text: "💬 SOMENTE TEXTO", callback_data: "ayla:text" }, { text: "🎙️ SOMENTE ÁUDIO", callback_data: "ayla:audio" }],
     [{ text: "🕒 Tempo de resposta", callback_data: "ayla:timing" }, { text: "📊 Status", callback_data: "ayla:status" }],
     [{ text: "🖼️ Fotos dela", callback_data: "ayla:photos" }, { text: "👤 Foto de perfil", callback_data: "ayla:profile" }],
     [{ text: "🍜 Comida", callback_data: "ayla:food" }, { text: "👗 Looks", callback_data: "ayla:looks" }],
@@ -454,14 +454,18 @@ async function answerTelegramCallback(q) {
   const chatId = q.message?.chat?.id;
   const key = String(q.data || "");
   let message = "Ayla";
-  if (key === "ayla:audio") {
+  if (key === "ayla:audio" || key === "ayla:text") {
     const p = await loadProfile("telegram:" + id);
-    p.telegramMode = "audio"; await saveProfile("telegram:" + id, p);
-    message = "Somente áudio ativado. Sem MP3 compatível, silêncio.";
+    p.telegramMode = key === "ayla:audio" ? "audio" : "texto";
+    await saveProfile("telegram:" + id, p);
+    message = p.telegramMode === "audio"
+      ? "Somente áudio ativado. Sem MP3 compatível, silêncio."
+      : "Somente texto ativado. Vou responder por mensagem escrita.";
   } else if (key === "ayla:timing") {
     message = "Leio a mensagem primeiro; depois o status digitando acompanha o tamanho dela. /nivel 1 rápido, /nivel 2 demorado, /nivel 3 silêncio ocasional, /nivel 4 variável.";
   } else if (key === "ayla:status") {
-    message = "Modo somente áudio. Memória: " + (dbReady ? "persistente" : "temporária sem banco configurado") + ".";
+    const p = await loadProfile("telegram:" + id);
+    message = "Modo " + (p.telegramMode || "texto") + ". Memória: " + (dbReady ? "persistente" : "temporária sem banco configurado") + ".";
   } else {
     const folders = {
       "ayla:photos":"media/images/ayla/fotos-dela/",
@@ -492,18 +496,20 @@ async function processTelegramUpdate(update) {
   if (text === "/id") { await sendTelegramText(chatId, "Seu ID numérico do Telegram é: " + senderId + "\nGuarde esse número e cadastre no Render em KYODAI_TELEGRAM_USER_ID. Não é um token secreto."); return; }
   if (text === "/start" || text.startsWith("/start ")) {
     const profile = await loadProfile(userId);
-    profile.telegramMode = "audio";
+    if (!["texto", "audio", "ambos"].includes(profile.telegramMode)) profile.telegramMode = "texto";
     await saveProfile(userId, profile);
-    await sendTelegramText(chatId, "Oii, Kyodai 💗 Eu sou a Ayla. Minhas respostas de conversa serão somente em áudio. Usa /menu para abrir os controles.", aylaMenuKeyboard());
+    await sendTelegramText(chatId, "Oii, Kyodai 💗 Eu sou a Ayla. Meu modo de resposta é " + profile.telegramMode + ". Usa /menu para abrir os controles ou /modo texto, /modo audio e /modo ambos.", aylaMenuKeyboard());
     return;
   }
   if (text === "/menu" || text === "/ajuda" || text === "/help") {
-    await sendTelegramText(chatId, "💗 AYLA · CENTRAL DE CONTROLE\n\nEscolhe uma opção abaixo. Conversas: somente áudio. Se não houver gravação compatível, ela fica em silêncio.", aylaMenuKeyboard());
+    const profile = await loadProfile(userId);
+    const mode = profile.telegramMode || "texto";
+    await sendTelegramText(chatId, "💗 AYLA · CENTRAL DE CONTROLE\n\nModo atual: " + mode + ". Escolhe uma opção abaixo ou usa /modo texto, /modo audio e /modo ambos.", aylaMenuKeyboard());
     return;
   }
   if (text === "/status") {
     const profile = await loadProfile(userId);
-    const mode = "audio";
+    const mode = profile.telegramMode || "texto";
     await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: envio somente de MP3 compatível; sem gravação, silêncio.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
     return;
   }
@@ -529,14 +535,21 @@ async function processTelegramUpdate(update) {
     }
     return;
   }
-  if (text.startsWith("/modo")) {
-    const requestedMode = "audio";
-    if (requestedMode !== "audio") { await sendTelegramText(chatId, "A Ayla está configurada para responder somente em áudio. Use /modo audio."); return; }
+  if (text === "/modo" || text.startsWith("/modo ")) {
+    const requestedMode = text.split(/\\s+/)[1]?.toLocaleLowerCase("pt-BR");
+    if (!["texto", "audio", "ambos"].includes(requestedMode)) {
+      await sendTelegramText(chatId, "Escolhe um modo: /modo texto, /modo audio ou /modo ambos.");
+      return;
+    }
     const profile = await loadProfile(userId);
     profile.telegramMode = requestedMode;
     await saveProfile(userId, profile);
-    const note = "Modo somente áudio salvo. Sem gravação compatível, fico em silêncio.";
-    await sendTelegramText(chatId, "Prontinho 💗 " + note);
+    const notes = {
+      texto: "Modo somente texto ativado. Vou responder por mensagem escrita.",
+      audio: "Modo somente áudio ativado. Sem gravação compatível, posso ficar em silêncio.",
+      ambos: "Modo texto e áudio ativado. Vou escolher entre resposta escrita e áudio."
+    };
+    await sendTelegramText(chatId, "Prontinho 💗 " + notes[requestedMode]);
     return;
   }
   if (text.startsWith("/") && !text.startsWith("/nivel")) { await sendTelegramText(chatId, "Abre /menu para ver os controles da Ayla.", aylaMenuKeyboard()); return; }
@@ -595,7 +608,7 @@ async function processTelegramUpdate(update) {
       return;
     }
     const delay = isKyodai ? 350 : chooseTelegramDelay(text, level);
-    const responseMode = "audio";
+    const responseMode = ["texto", "audio", "ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
     await scheduleTelegramReply(chatId, reply, text, delay, responseMode);
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
   } catch (error) {
