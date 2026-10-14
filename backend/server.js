@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expandedFallback } from "./local-responses-v2.js";
@@ -218,38 +218,68 @@ async function sendTelegramText(chatId, text, replyMarkup = null) {
   }
 }
 
-function chooseTelegramAudio(sourceMessage, reply) {
-  const source = String(sourceMessage || "").toLocaleLowerCase("pt-BR");
-  const answer = String(reply || "").toLocaleLowerCase("pt-BR");
-  if (/^(oi+|ol[aá]|eae|eai|opa|salve|bom dia|boa tarde|boa noite)[!.?\s]*$/.test(source)) {
-    const greetings = [
-      "01-cumprimentos/oi_animado.mp3",
-      "01-cumprimentos/oi_enfatizado.mp3",
-      "01-cumprimentos/oi_sussurrado.mp3",
-      "01-cumprimentos/oi_triste.mp3",
-      "01-cumprimentos/oi_envergonhado.mp3",
-      "01-cumprimentos/oi_irritado.mp3"
-    ];
-    return greetings[Math.floor(Math.random() * greetings.length)];
+async function chooseTelegramAudio(sourceMessage, reply) {
+  const folder = join(AUDIO_DIR, "01-cumprimentos");
+  let files;
+  try {
+    files = await readdir(folder, { withFileTypes: true });
+  } catch {
+    console.error("Pasta de áudios não encontrada no deploy:", folder);
+    return null;
   }
-  if (/(tudo bem|como (tu|voc[eê]) (t[aá]|est[aá])|como c[eê] (t[aá]|est[aá])|como vai)/i.test(source)) {
-    return "02-respostas-curtas/estou_bem_obrigada.mp3";
+
+  // Os áudios enviados ao repositório não têm extensão. Ignoramos ZIPs e arquivos de documentação.
+  const audioFiles = files
+    .filter(file => file.isFile() && !/\\.(zip|json|md|txt)$/i.test(file.name))
+    .map(file => file.name)
+    .filter(name => !/(bucet|me-fode|machuca-minha|sexo)/i.test(name));
+
+  if (!audioFiles.length) return null;
+  const normalize = value => String(value || "")
+    .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, " ").trim();
+  const source = normalize(sourceMessage);
+  const answer = normalize(reply);
+  const choose = pattern => {
+    const matches = audioFiles.filter(name => pattern.test(normalize(name)));
+    if (!matches.length) return null;
+    return "01-cumprimentos/" + matches[Math.floor(Math.random() * matches.length)];
+  };
+
+  if (/^(oi+|ola+|oie+|e ai|eae|opa+|salve|bom dia|boa tarde|boa noite|hey|hi|hello)\\b/.test(source)) {
+    return choose(/\\b(oi+|ola+|oie+|opa+|salve)\\b/);
   }
-  if (/(n[aã]o falou comigo hoje|sentiu minha falta|saudade|sumida|sumido)/i.test(source) || /n[aã]o falou comigo hoje/i.test(answer)) {
-    return "03-emocoes/nao_falou_comigo_hoje_triste.mp3";
+  if (/(tudo bem|como (tu|voce) ta|como ce ta|como vai)/.test(source)) {
+    return choose(/estou bem|tudo bem no que posso ajudar/);
   }
-  if (/(foi tomar banho|tomar banho|cad[eê] tu|onde tu tava|onde voc[eê] tava)/i.test(source)) {
-    return "04-ausencias-desculpas/fui_tomar_banho.mp3";
+  if (/(nao falou comigo hoje|sentiu minha falta|saudade|sumida|sumido)/.test(source) || /nao falou comigo|nao me responde/.test(answer)) {
+    return choose(/nao falou comigo|nao me responde/);
   }
-  if (/(dormiu|foi dormir|por que demorou|pq demorou|demorou pra responder)/i.test(source)) {
-    return "04-ausencias-desculpas/acabei_dormindo.mp3";
+  if (/(foi tomar banho|tomar banho|cade tu|onde tu tava|onde voce tava)/.test(source)) {
+    return choose(/fui toma banho/);
   }
-  if (/(cansad[oa]|exaust[oa]|sono)/i.test(source) || /apenas um pouco/i.test(answer)) {
-    return "02-respostas-curtas/estou_apenas_um_pouco_cansada.mp3";
+  if (/(dormiu|foi dormir|por que demorou|pq demorou|demorou pra responder)/.test(source)) {
+    return choose(/acabei dormindo/);
   }
+  if (/(cansado|cansada|exausto|exausta|sono)/.test(source) || /apenas um pouco|estou com sono/.test(answer)) {
+    return choose(/estou com sono|apenas um pouco/);
+  }
+  if (/(o que ta fazendo|oque ta fazendo|que ta fazendo)/.test(source)) {
+    return choose(/oque ta fazendo/);
+  }
+  if (/instagram/.test(source)) return choose(/voce tem instagram/);
+  if (/(nao entendi|como assim)/.test(source) || /nao entendi/.test(answer)) return choose(/nao entendi/);
+  if (/(cometeu um engano|isso e um engano)/.test(source) || /cometeu um engano/.test(answer)) return choose(/cometeu um engano/);
+  if (/serio/.test(source)) return choose(/serio/);
+  if (/^(tchau|adeus|falou|beijos|beijo)/.test(source)) return choose(/tchau tchau|beijos/);
+  if (/bloquear|bloqueia/.test(source)) return choose(/vou te bloquear/);
+  if (/desculpa|foi mal/.test(source)) return choose(/desculpa a demora/);
+  if (/gostou/.test(source)) return choose(/gostou/);
+  if (/(sim|concordo|pode ser)/.test(source)) return choose(/sim|talvez/);
+  if (/(criador|quem te criou)/.test(source)) return choose(/meu criador/);
+  if (/vou te mandar|manda/.test(source)) return choose(/vou te mandar uma coisa/);
   return null;
 }
-
 async function sendTelegramAudio(chatId, relativePath) {
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
   if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de áudio inválido.");
@@ -266,7 +296,8 @@ async function sendTelegramAudio(chatId, relativePath) {
   if (bytes) {
     const form = new FormData();
     form.append("chat_id", String(chatId));
-    form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), relativePath.split("/").pop());
+    const uploadName = relativePath.split("/").pop();
+    form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), /\\.[a-z0-9]{2,5}$/i.test(uploadName) ? uploadName : uploadName + ".mp3");
     response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
       method: "POST",
       body: form,
@@ -372,7 +403,7 @@ async function deliverScheduledTelegramReply(job) {
     const replyText = String(job.reply || "");
     const isAudioReply = replyText.startsWith("__AYLA_AUDIO__");
     const audioPath = isAudioReply
-      ? chooseTelegramAudio(sourceMessage, replyText.slice("__AYLA_AUDIO__".length))
+      ? await chooseTelegramAudio(sourceMessage, replyText.slice("__AYLA_AUDIO__".length))
       : null;
 
     // Não mostrar "digitando..." se já sabemos que não há gravação compatível.
