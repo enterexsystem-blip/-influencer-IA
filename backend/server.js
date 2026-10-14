@@ -459,7 +459,7 @@ async function deliverScheduledTelegramReply(job) {
           audioAvailable = true;
         } catch {
           console.error("Áudio compatível foi identificado, mas o arquivo não está acessível:", audioPath);
-          recordDiagnosticError("telegram.audio_file_missing", new Error("Arquivo de áudio não acessível"), { audioPath });
+          recordDiagnosticError("telegram.audio_file_missing", new Error("Arquivo de áudio compatível não acessível"));
         }
       }
       if (isBothReply || !audioAvailable) {
@@ -490,7 +490,7 @@ async function deliverScheduledTelegramReply(job) {
     if (job.localId) localScheduledTelegramReplies.delete(job.localId);
     scheduledTelegramTimers.delete(jobKey);
   } catch (error) {
-    recordDiagnosticError("telegram.deliver_reply", error, { chatId: String(chatId) });
+    recordDiagnosticError("telegram.deliver_reply", error);
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
     console.error("Falha ao enviar resposta agendada da Ayla:", telegramLastReplyError);
   }
@@ -731,7 +731,7 @@ async function processTelegramUpdate(update) {
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
   } catch (error) {
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
-    recordDiagnosticError("telegram.generate_or_schedule", error, { userId: String(senderId) });
+    recordDiagnosticError("telegram.generate_or_schedule", error);
     console.error("Falha ao gerar/agendar resposta da Ayla no Telegram:", telegramLastReplyError);
     try { await sendTelegramText(chatId, "Tive um erro interno ao preparar minha resposta. O diagnóstico foi registrado; tenta de novo em alguns instantes."); } catch (sendError) {
       recordDiagnosticError("telegram.error_notice", sendError);
