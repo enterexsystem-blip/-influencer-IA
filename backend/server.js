@@ -37,6 +37,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY?.trim() || "";
 const FISH_AUDIO_REFERENCE_ID = process.env.FISH_AUDIO_REFERENCE_ID?.trim() || "";
 const FISH_AUDIO_MODEL = (process.env.FISH_AUDIO_MODEL || "s2.1-pro").trim();
+const FISH_AUDIO_AUTO_SAVE = process.env.FISH_AUDIO_AUTO_SAVE === "true";
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || "";
 const TELEGRAM_WEBHOOK_BASE_URL = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().replace(/\/+$/, "") || "";
 const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "8737360017";
@@ -180,6 +181,20 @@ async function generateFishAudio(text, referenceId = FISH_AUDIO_REFERENCE_ID) {
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length < 100) throw Object.assign(new Error("Fish Audio retornou um arquivo vazio ou inválido."), { status: 502 });
   return bytes;
+}
+
+async function saveAylaAudioToGitHub(text) {
+  const audio = await generateFishAudio(text);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const suffix = createHash("sha256").update(text + Date.now()).digest("hex").slice(0, 8);
+  const path = "media/audios/atualizacao/ayla-" + stamp + "-" + suffix + ".mp3";
+  const savedPath = await githubWriteFile(path, audio.toString("base64"), "Gera áudio automático da Ayla via Fish Audio");
+  addRuntimeEvent("info", "Áudio da Ayla gerado e salvo", { path: savedPath, bytes: audio.length });
+  return { path: savedPath, bytes: audio.length };
+}
+function queueAylaAudioSave(text) {
+  if (!FISH_AUDIO_AUTO_SAVE || !FISH_AUDIO_API_KEY || !FISH_AUDIO_REFERENCE_ID) return;
+  saveAylaAudioToGitHub(text).catch(error => recordDiagnosticError("fish_audio.auto_save", error));
 }
 
 async function githubDeleteFile(path) {
@@ -328,14 +343,14 @@ async function generateAylaReply(message, userId, extraInstructions = "") {
     if (!upstream.ok) throw new Error(`Provedor de IA ${activeProvider} respondeu com status ${upstream.status}: ${String(data.error?.message || data.message || data.error?.code || "erro sem detalhes").slice(0, 240)}`);
     const generated = data.choices?.[0]?.message?.content?.trim() || "";
     const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
-    rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() }); await saveProfile(userId, profile); return reply;
+    queueAylaAudioSave(reply); rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() }); await saveProfile(userId, profile); return reply;
   }
   upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(activeModel)}:generateContent`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": activeKey }, body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents: [{ role: "user", parts: [{ text: message }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 300 } }), signal: AbortSignal.timeout(25_000) });
   data = await upstream.json().catch(() => ({}));
   if (!upstream.ok) throw new Error(`Provedor de IA gemini respondeu com status ${upstream.status}: ${String(data.error?.message || data.error?.status || "erro sem detalhes").slice(0, 240)}`);
   const generated = data.candidates?.[0]?.content?.parts?.map(part => typeof part.text === "string" ? part.text : "").join("").trim() || "";
   const reply = isNoopReply(generated) ? await phraseFallbackAndSave(message, profile, userId) : generated;
-  rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() }); await saveProfile(userId, profile); return reply;
+  queueAylaAudioSave(reply); rememberConversationEvent(profile, { role: "assistant", text: reply, at: Date.now() }); await saveProfile(userId, profile); return reply;
 }
 
 async function sendInstagramText(recipientId, text) {
@@ -1395,17 +1410,12 @@ const server = createServer(async (req, res) => {
       if (!text) return send(res, 400, { error: "Escreva o texto que a Ayla deve falar." });
       if (text.length > 4000) return send(res, 413, { error: "O texto passou do limite de 4.000 caracteres." });
       const referenceId = String(body.referenceId || FISH_AUDIO_REFERENCE_ID).trim();
-      const audio = await generateFishAudio(text, referenceId);
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const suffix = createHash("sha256").update(text + Date.now()).digest("hex").slice(0, 8);
-      const path = "media/audios/atualizacao/ayla-" + stamp + "-" + suffix + ".mp3";
-      const savedPath = await githubWriteFile(path, audio.toString("base64"), "Gera áudio da Ayla via Fish Audio");
-      addRuntimeEvent("info", "Áudio da Ayla gerado e salvo", { path: savedPath, bytes: audio.length });
+      const saved = await saveAylaAudioToGitHub(text);
       return send(res, 200, {
         ok: true,
-        path: savedPath,
-        bytes: audio.length,
-        previewUrl: "/media/file?path=" + encodeURIComponent(savedPath),
+        path: saved.path,
+        bytes: saved.bytes,
+        previewUrl: "/media/file?path=" + encodeURIComponent(saved.path),
         message: "Áudio gerado e salvo na biblioteca do GitHub."
       });
     } catch (error) {
