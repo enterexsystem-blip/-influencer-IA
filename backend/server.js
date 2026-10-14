@@ -45,6 +45,13 @@ const seenInstagramMessageIds = new Map();
 const instagramLastReply = new Map();
 const requests = new Map();
 const startedAt = Date.now();
+const runtimeEvents = [];
+function addRuntimeEvent(level, message, details = {}) {
+  const safeMessage = String(message || "evento").replace(/bot\\d+:[A-Za-z0-9_-]+/g, "[token oculto]").replace(/AIza[A-Za-z0-9_-]{20,}/g, "[chave ocultada]").slice(0, 300);
+  runtimeEvents.push({ at: new Date().toISOString(), level, message: safeMessage, ...details });
+  if (runtimeEvents.length > 100) runtimeEvents.shift();
+  console.log("[AYLA_EVENT]", JSON.stringify(runtimeEvents[runtimeEvents.length - 1]));
+}
 const runtimeDiagnostics = {
   updatesReceived: 0,
   messagesReceived: 0,
@@ -69,6 +76,7 @@ function recordDiagnosticError(phase, error, details = {}) {
     .slice(0, 400);
   const item = { at: new Date().toISOString(), phase, message, ...details };
   runtimeDiagnostics.lastError = item;
+  addRuntimeEvent("error", phase + " — " + message);
   runtimeDiagnostics.recentErrors.push(item);
   if (runtimeDiagnostics.recentErrors.length > 20) runtimeDiagnostics.recentErrors.shift();
   notifyCreatorDiagnostic(item).catch(notifyError => console.error("Não foi possível enviar alerta privado de diagnóstico:", notifyError?.message || "erro"));
@@ -510,6 +518,7 @@ async function deliverScheduledTelegramReply(job) {
         await simulateTelegramTyping(chatId, sourceMessage);
         await sendTelegramText(chatId, replyText);
         runtimeDiagnostics.repliesSent += 1;
+        addRuntimeEvent("success", "Resposta enviada ao Telegram");
         runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
         if (!audioAvailable) {
           runtimeDiagnostics.textFallbacks += 1;
@@ -1051,7 +1060,16 @@ const server = createServer(async (req, res) => {
     return send(res, 200, {
       ok: !runtimeDiagnostics.lastError,
       service: "influencer-ia-backend",
-      version: "diagnostics-v1",
+      version: "diagnostics-v2-live-events",
+      deployment: {
+        renderServiceId: process.env.RENDER_SERVICE_ID || null,
+        renderInstanceId: process.env.RENDER_INSTANCE_ID || null,
+        gitCommit: process.env.RENDER_GIT_COMMIT || process.env.RENDER_GIT_COMMIT_SHA || null,
+        nodeVersion: process.version,
+        maintenanceNotice: "O Render informou manutenção de infraestrutura em 14/10/2026 às 22:00 GMT-3 (15/10/2026 às 01:00 UTC). Consulte a página de status do Render para atualizações.",
+        statusPageUrl: "https://status.render.com/"
+      },
+      events: runtimeEvents.slice(-60),
       startedAt: new Date(startedAt).toISOString(),
       uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
       runtime: {
@@ -1624,6 +1642,7 @@ initStore().catch(error => { dbReady = false; pool = null; console.error("Banco 
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Influencer IA backend ouvindo na porta ${PORT}; provedor ${PROVIDER}; modelo ${MODEL}`);
+  addRuntimeEvent("success", "Backend iniciado; provedor " + PROVIDER + "; modelo " + MODEL);
   if (TELEGRAM_BOT_TOKEN && TELEGRAM_WEBHOOK_SECRET && TELEGRAM_WEBHOOK_BASE_URL) {
     const webhookUrl = TELEGRAM_WEBHOOK_BASE_URL + "/telegram/webhook";
     fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/setWebhook", {
@@ -1636,8 +1655,10 @@ server.listen(PORT, "0.0.0.0", () => {
       telegramWebhookLastError = telegramWebhookRegistered ? null : (data.description || `Telegram HTTP ${response.status}`);
       if (!telegramWebhookRegistered) {
         console.error("Falha ao registrar webhook do Telegram:", response.status, data.description || "resposta inválida");
+      addRuntimeEvent("error", "Falha ao registrar webhook do Telegram: " + (data.description || response.status));
       } else {
         console.log("Webhook do Telegram registrado com sucesso:", webhookUrl);
+        addRuntimeEvent("success", "Webhook do Telegram registrado");
       }
     }).catch(error => {
       telegramWebhookRegistered = false;
