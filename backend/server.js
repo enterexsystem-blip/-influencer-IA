@@ -1011,6 +1011,28 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "GET" && requestUrl.pathname === "/media-studio") {
+    try {
+      const html = await readFile(join(BACKEND_DIR, "media-studio.html"), "utf8");
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      return res.end(html);
+    } catch (error) {
+      recordDiagnosticError("media_studio.dashboard", error);
+      return send(res, 500, { error: "Ayla Media Studio indisponível." });
+    }
+  }
+
+  if (req.method === "GET" && requestUrl.pathname === "/media/catalog") {
+    try {
+      const audio = await getAudioInventory();
+      const files = (audio.examples || []).map(path => ({ path: String(path), name: String(path).split("/").pop(), type: "audio", isNew: false }));
+      return send(res, 200, { ok: true, files, totalAudio: audio.audioFiles || files.length, note: "Este catálogo expõe apenas exemplos retornados pelo inventário de áudio. Upload, renomear e mover ainda não estão habilitados." });
+    } catch (error) {
+      recordDiagnosticError("media_studio.catalog", error);
+      return send(res, 500, { error: "Não foi possível listar o inventário de mídia." });
+    }
+  }
+
   if (req.method === "GET" && requestUrl.pathname === "/central") {
     try {
       const html = await readFile(join(BACKEND_DIR, "central.html"), "utf8");
