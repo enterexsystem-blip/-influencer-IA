@@ -23,6 +23,7 @@ let activeAIProvider = PROVIDER;
 const pendingFailovers = new Map();
 const failoverTimers = new Map();
 const localProfiles = new Map();
+const telegramMediaLibrary = new Map();
 let pool = null;
 let dbReady = false;
 const slangDictionary = {mn:"mano",slk:"se loko",tlgd:"tá ligado",pprt:"papo reto",blz:"beleza",suave:"tranquilo","mó":"muito",vish:"surpresa",eae:"e aí",eai:"e aí",tmj:"tamo junto",mds:"meu Deus",nss:"nossa",tbm:"também",vc:"você",pq:"por que/porque",kkk:"risada",kkkk:"risada",kkkkk:"risada",amg:"amigo/amiga",sdd:"saudade",paia:"ruim/desagradável",aff:"irritação",parça:"parceiro",mano:"mano","véi":"velho",vei:"velho","cê":"você"};
@@ -399,6 +400,97 @@ async function processInstagramWebhook(payload) {
       }
     }
   }
+}
+
+function normalizeMediaText(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+}
+function telegramMediaCategory(title, caption = "") {
+  const t = normalizeMediaText(String(title || "") + " " + String(caption || ""));
+  if (/(18\+|adult|vip|intim|privad|sensual|adulto|adultos)/.test(t)) return "adultos";
+  if (/(cumprimento|saudacao|saudacoes|oi\b|ola\b|hello|bom dia|boa tarde|boa noite)/.test(t)) return "cumprimentos";
+  if (/(risada|rindo|kkkk|haha|gargalh)/.test(t)) return "risadas";
+  if (/(carinh|fofa|fofo|amor|saudade|beijo|boa noite|dormir)/.test(t)) return "carinho";
+  if (/(unha|esmalte|manicure)/.test(t)) return "unhas";
+  if (/(comida|comendo|almoco|jantar|lanche|cafe|pizza|doce)/.test(t)) return "comidas";
+  if (/(look|roupa|vestido|blusa|outfit|moda)/.test(t)) return "looks";
+  if (/(atividade|academia|estudando|passeio|trabalhando|rotina)/.test(t)) return "atividades";
+  if (/(perfil|avatar)/.test(t)) return "perfil";
+  if (/(selfie|foto|imagem|fotos)/.test(t)) return "fotos";
+  if (/(audio|audios|voz|falas|mp3|voice)/.test(t)) return "audios";
+  return "geral";
+}
+function extractTelegramMedia(message) {
+  if (!message) return null;
+  const candidates = [
+    message.audio ? { type: "audio", item: message.audio } : null,
+    message.voice ? { type: "voice", item: message.voice } : null,
+    message.video ? { type: "video", item: message.video } : null,
+    message.animation ? { type: "animation", item: message.animation } : null,
+    message.document ? { type: "document", item: message.document } : null,
+    message.video_note ? { type: "video_note", item: message.video_note } : null,
+    Array.isArray(message.photo) && message.photo.length ? { type: "photo", item: message.photo[message.photo.length - 1] } : null
+  ].filter(Boolean);
+  return candidates.map(({ type, item }) => ({
+    type,
+    fileId: item.file_id,
+    caption: String(message.caption || "").slice(0, 900),
+    fileName: item.file_name || "",
+    mimeType: item.mime_type || "",
+    messageId: message.message_id,
+    chatId: String(message.chat?.id || ""),
+    chatTitle: String(message.chat?.title || message.chat?.username || "Canal Telegram"),
+    category: telegramMediaCategory(message.chat?.title, message.caption || item.file_name || "")
+  })).filter(item => item.fileId && item.chatId);
+}
+async function recordTelegramChannelPost(message) {
+  const items = extractTelegramMedia(message);
+  if (!items?.length) return;
+  for (const item of items) {
+    const key = item.chatId + ":" + item.messageId + ":" + item.type;
+    telegramMediaLibrary.set(key, item);
+    if (dbReady && pool) {
+      await pool.query(
+        "INSERT INTO telegram_media_library (chat_id, chat_title, message_id, category, media_type, file_id, caption, file_name, mime_type, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) ON CONFLICT (chat_id,message_id,media_type) DO UPDATE SET chat_title=EXCLUDED.chat_title, category=EXCLUDED.category, file_id=EXCLUDED.file_id, caption=EXCLUDED.caption, file_name=EXCLUDED.file_name, mime_type=EXCLUDED.mime_type",
+        [item.chatId, item.chatTitle, Number(item.messageId), item.category, item.type, item.fileId, item.caption, item.fileName, item.mimeType]
+      );
+    }
+  }
+  addRuntimeEvent("success", "Mídia recebida de canal do Telegram", { title: items[0].chatTitle, category: items[0].category, mediaCount: items.length });
+}
+async function getTelegramMedia(category, types = []) {
+  let items = [];
+  if (dbReady && pool) {
+    const params = [];
+    let sql = "SELECT chat_id, chat_title, message_id, category, media_type, file_id, caption, file_name, mime_type FROM telegram_media_library";
+    const clauses = [];
+    if (category && category !== "geral") { params.push(category); clauses.push("category = $" + params.length); }
+    if (types.length) { params.push(types); clauses.push("media_type = ANY($" + params.length + "::text[])"); }
+    if (clauses.length) sql += " WHERE " + clauses.join(" AND ");
+    sql += " ORDER BY created_at DESC LIMIT 500";
+    const result = await pool.query(sql, params);
+    items = result.rows.map(row => ({ chatId: row.chat_id, chatTitle: row.chat_title, messageId: row.message_id, category: row.category, type: row.media_type, fileId: row.file_id, caption: row.caption, fileName: row.file_name, mimeType: row.mime_type }));
+  } else {
+    items = Array.from(telegramMediaLibrary.values()).filter(item =>
+      (!category || category === "geral" || item.category === category) && (!types.length || types.includes(item.type))
+    );
+  }
+  return items;
+}
+async function sendTelegramStoredMedia(chatId, item, caption = "") {
+  if (!TELEGRAM_BOT_TOKEN || !item?.fileId) throw new Error("Mídia do Telegram inválida.");
+  const methodByType = { audio: "sendAudio", voice: "sendVoice", video: "sendVideo", animation: "sendAnimation", document: "sendDocument", video_note: "sendVideoNote", photo: "sendPhoto" };
+  const method = methodByType[item.type];
+  if (!method) throw new Error("Tipo de mídia não compatível: " + item.type);
+  const payload = { chat_id: chatId };
+  payload[method === "sendPhoto" ? "photo" : method === "sendAudio" ? "audio" : method === "sendVoice" ? "voice" : method === "sendVideo" ? "video" : method === "sendAnimation" ? "animation" : method === "sendDocument" ? "document" : "video_note"] = item.fileId;
+  if (caption && !["sendVideoNote"].includes(method)) payload.caption = String(caption).slice(0, 900);
+  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/" + method, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(25000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true) throw new Error("Telegram " + method + " falhou: " + String(data.description || response.status).slice(0, 200));
+  return data.result;
 }
 
 async function sendTelegramText(chatId, text, replyMarkup = null) {
@@ -1021,6 +1113,12 @@ async function answerTelegramCallback(q) {
 
 async function processTelegramUpdate(update) {
   if (update?.callback_query) { await answerTelegramCallback(update.callback_query); return; }
+  const channelPost = update?.channel_post || update?.edited_channel_post;
+  if (channelPost) {
+    try { await recordTelegramChannelPost(channelPost); }
+    catch (error) { recordDiagnosticError("telegram.channel_media_catalog", error); }
+    return;
+  }
   const message = update?.message;
   const senderId = String(message?.from?.id || "");
   const chatId = message?.chat?.id;
@@ -1941,6 +2039,8 @@ async function initStore() {
   pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }, max: 5, connectionTimeoutMillis: 8000 });
   await pool.query("CREATE TABLE IF NOT EXISTS influencer_profiles (user_id TEXT PRIMARY KEY, profile JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
   await pool.query("CREATE TABLE IF NOT EXISTS telegram_pending_replies (id BIGSERIAL PRIMARY KEY, chat_id TEXT NOT NULL, reply TEXT NOT NULL, source_message TEXT NOT NULL DEFAULT '', due_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  await pool.query("CREATE TABLE IF NOT EXISTS telegram_media_library (id BIGSERIAL PRIMARY KEY, chat_id TEXT NOT NULL, chat_title TEXT NOT NULL, message_id BIGINT NOT NULL, category TEXT NOT NULL, media_type TEXT NOT NULL, file_id TEXT NOT NULL, caption TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', mime_type TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(chat_id,message_id,media_type))");
+  await pool.query("CREATE INDEX IF NOT EXISTS telegram_media_library_category_idx ON telegram_media_library(category, media_type)");
   dbReady = true;
   console.log("Memória persistente PostgreSQL conectada.");
   await recoverScheduledTelegramReplies();
@@ -2224,7 +2324,7 @@ server.listen(PORT, "0.0.0.0", () => {
     const webhookUrl = TELEGRAM_WEBHOOK_BASE_URL + "/telegram/webhook";
     fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/setWebhook", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl, secret_token: TELEGRAM_WEBHOOK_SECRET, allowed_updates: ["message", "callback_query"] }),
+      body: JSON.stringify({ url: webhookUrl, secret_token: TELEGRAM_WEBHOOK_SECRET, allowed_updates: ["message", "callback_query", "channel_post", "edited_channel_post"] }),
       signal: AbortSignal.timeout(15000)
     }).then(async response => {
       const data = await response.json().catch(() => ({}));
