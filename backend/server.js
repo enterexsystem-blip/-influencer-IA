@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,6 +34,9 @@ const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN?.trim() || "";
 const INSTAGRAM_APP_SECRET = process.env.META_APP_SECRET?.trim() || "";
 const INSTAGRAM_VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN?.trim() || "";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY?.trim() || "";
+const FISH_AUDIO_REFERENCE_ID = process.env.FISH_AUDIO_REFERENCE_ID?.trim() || "";
+const FISH_AUDIO_MODEL = (process.env.FISH_AUDIO_MODEL || "s2.1-pro").trim();
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || "";
 const TELEGRAM_WEBHOOK_BASE_URL = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().replace(/\/+$/, "") || "";
 const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "8737360017";
@@ -156,6 +159,29 @@ async function githubWriteFile(path, contentBase64, message) {
   await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/"), { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
   return p;
 }
+async function generateFishAudio(text, referenceId = FISH_AUDIO_REFERENCE_ID) {
+  if (!FISH_AUDIO_API_KEY) throw Object.assign(new Error("Falta configurar FISH_AUDIO_API_KEY nas variáveis do Render."), { status: 503 });
+  if (!referenceId) throw Object.assign(new Error("Falta configurar FISH_AUDIO_REFERENCE_ID com o ID da voz da Ayla no Fish Audio."), { status: 503 });
+  const response = await fetch("https://api.fish.audio/v1/tts", {
+    method: "POST",
+    headers: {
+      "authorization": "Bearer " + FISH_AUDIO_API_KEY,
+      "content-type": "application/json",
+      "model": FISH_AUDIO_MODEL
+    },
+    body: JSON.stringify({ text, reference_id: referenceId, format: "mp3" }),
+    signal: AbortSignal.timeout(120000)
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 500);
+    const status = response.status === 401 || response.status === 403 ? 502 : response.status === 429 ? 429 : 502;
+    throw Object.assign(new Error("Fish Audio respondeu HTTP " + response.status + (detail ? ": " + detail : "")), { status });
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length < 100) throw Object.assign(new Error("Fish Audio retornou um arquivo vazio ou inválido."), { status: 502 });
+  return bytes;
+}
+
 async function githubDeleteFile(path) {
   const p = safeMediaPath(path);
   const current = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/"));
@@ -1347,7 +1373,7 @@ const server = createServer(async (req, res) => {
     }
   }
 
-  if (requestUrl.pathname === "/media-studio" || requestUrl.pathname.startsWith("/media/")) {
+  if (requestUrl.pathname === "/media-studio" || requestUrl.pathname.startsWith("/media/") || requestUrl.pathname === "/tts/fish") {
     if (!mediaAuth(req, res)) return;
   }
 
@@ -1359,6 +1385,32 @@ const server = createServer(async (req, res) => {
     } catch (error) {
       recordDiagnosticError("media_studio.dashboard", error);
       return send(res, 500, { error: "Ayla Media Studio indisponível." });
+    }
+  }
+
+  if (req.method === "POST" && requestUrl.pathname === "/tts/fish") {
+    try {
+      const body = await readJson(req, 100_000);
+      const text = String(body.text || "").trim();
+      if (!text) return send(res, 400, { error: "Escreva o texto que a Ayla deve falar." });
+      if (text.length > 4000) return send(res, 413, { error: "O texto passou do limite de 4.000 caracteres." });
+      const referenceId = String(body.referenceId || FISH_AUDIO_REFERENCE_ID).trim();
+      const audio = await generateFishAudio(text, referenceId);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const suffix = createHash("sha256").update(text + Date.now()).digest("hex").slice(0, 8);
+      const path = "media/audios/atualizacao/ayla-" + stamp + "-" + suffix + ".mp3";
+      const savedPath = await githubWriteFile(path, audio.toString("base64"), "Gera áudio da Ayla via Fish Audio");
+      addRuntimeEvent("info", "Áudio da Ayla gerado e salvo", { path: savedPath, bytes: audio.length });
+      return send(res, 200, {
+        ok: true,
+        path: savedPath,
+        bytes: audio.length,
+        previewUrl: "/media/file?path=" + encodeURIComponent(savedPath),
+        message: "Áudio gerado e salvo na biblioteca do GitHub."
+      });
+    } catch (error) {
+      recordDiagnosticError("fish_audio.generate", error);
+      return send(res, error.status || 502, { error: error.message || "Não foi possível gerar o áudio." });
     }
   }
 
