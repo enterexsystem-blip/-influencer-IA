@@ -204,15 +204,20 @@ async function processInstagramWebhook(payload) {
   }
 }
 
-async function sendTelegramText(chatId, text) {
+async function sendTelegramText(chatId, text, replyMarkup = null) {
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
+  const payload = { chat_id: chatId, text: String(text).slice(0, 4000) };
+  if (replyMarkup) payload.reply_markup = replyMarkup;
   const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: String(text).slice(0, 4000) }),
+    body: JSON.stringify(payload),
     signal: AbortSignal.timeout(15000)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok !== true) throw new Error("A API do Telegram não aceitou a mensagem.");
+  if (!response.ok || data.ok !== true) {
+    console.error("Telegram sendMessage falhou:", response.status, data.description || "resposta inválida");
+    throw new Error("A API do Telegram não aceitou a mensagem: " + String(data.description || response.status).slice(0, 200));
+  }
 }
 
 function chooseTelegramAudio(sourceMessage, reply) {
@@ -1185,7 +1190,7 @@ server.listen(PORT, "0.0.0.0", () => {
     const webhookUrl = TELEGRAM_WEBHOOK_BASE_URL + "/telegram/webhook";
     fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/setWebhook", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl, secret_token: TELEGRAM_WEBHOOK_SECRET, allowed_updates: ["message"] }),
+      body: JSON.stringify({ url: webhookUrl, secret_token: TELEGRAM_WEBHOOK_SECRET, allowed_updates: ["message", "callback_query"] }),
       signal: AbortSignal.timeout(15000)
     }).then(async response => {
       const data = await response.json().catch(() => ({}));
