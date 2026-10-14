@@ -53,13 +53,58 @@ const runtimeDiagnostics = {
   recentErrors: []
 };
 
+const notifiedDiagnosticKeys = new Map();
 function recordDiagnosticError(phase, error, details = {}) {
-  const message = String(error?.message || error || "erro desconhecido").replace(/bot\d+:[A-Za-z0-9_-]+/g, "[token oculto]").slice(0, 400);
+  const message = String(error?.message || error || "erro desconhecido")
+    .replace(/bot\\d+:[A-Za-z0-9_-]+/g, "[token oculto]")
+    .replace(/AIza[A-Za-z0-9_-]{20,}/g, "[chave ocultada]")
+    .slice(0, 400);
   const item = { at: new Date().toISOString(), phase, message, ...details };
   runtimeDiagnostics.lastError = item;
   runtimeDiagnostics.recentErrors.push(item);
   if (runtimeDiagnostics.recentErrors.length > 20) runtimeDiagnostics.recentErrors.shift();
+  notifyCreatorDiagnostic(item).catch(notifyError => console.error("Não foi possível enviar alerta privado de diagnóstico:", notifyError?.message || "erro"));
   return item;
+}
+async function notifyCreatorDiagnostic(item) {
+  if (!TELEGRAM_BOT_TOKEN || !KYODAI_TELEGRAM_USER_ID) return;
+  const key = item.phase + "|" + item.message;
+  const now = Date.now();
+  const last = notifiedDiagnosticKeys.get(key) || 0;
+  if (now - last < 10 * 60 * 1000) return;
+  notifiedDiagnosticKeys.set(key, now);
+  if (notifiedDiagnosticKeys.size > 200) {
+    for (const [k, at] of notifiedDiagnosticKeys) if (now - at > 60 * 60 * 1000) notifiedDiagnosticKeys.delete(k);
+  }
+  const knownPhases = {
+    "telegram.generate_or_schedule": "A Ayla recebeu a mensagem, mas falhou ao gerar ou agendar a resposta.",
+    "telegram.deliver_reply": "A resposta foi preparada, mas a entrega pelo Telegram falhou.",
+    "telegram.audio_send": "O envio do áudio falhou; a Ayla pode tentar enviar texto como alternativa.",
+    "telegram.audio_file_missing": "Nenhum áudio compatível foi localizado para esta resposta.",
+    "telegram.process_update": "O processamento de uma atualização do Telegram falhou.",
+    "diagnostics.dashboard": "O painel visual de diagnóstico não pôde ser carregado."
+  };
+  const phaseLabel = knownPhases[item.phase] || "O sistema registrou uma falha em um componente da Ayla.";
+  const text = [
+    "🩺 AYLA · ALERTA DE SISTEMA",
+    "",
+    "⚠️ Foi detectado um erro que precisa de atenção.",
+    "",
+    "📍 LOCAL",
+    item.phase,
+    "",
+    "📝 O QUE ACONTECEU",
+    phaseLabel,
+    item.message,
+    "",
+    "🕒 HORÁRIO (UTC)",
+    item.at,
+    "",
+    "🔎 Abra a central para ver os módulos, verificações e relatório completo."
+  ].join("\n").slice(0, 3500);
+  await sendTelegramText(KYODAI_TELEGRAM_USER_ID, text, {
+    inline_keyboard: [[{ text: "🩺 Abrir diagnóstico completo", url: "https://influencer-ia-backend.onrender.com/diagnostics" }]]
+  });
 }
 
 async function getAudioInventory() {
