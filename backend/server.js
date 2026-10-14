@@ -1049,6 +1049,12 @@ async function processTelegramUpdate(update) {
     const xpResult = addTelegramXp(profile, 1);
     profile.intimacyLevel = xpResult.after.level;
     profile.intimacyName = xpResult.after.name;
+    // Cada ID possui um perfil próprio persistente no PostgreSQL.
+    profile.platform = "telegram";
+    profile.platformUserId = senderId;
+    if (message.from?.first_name) profile.displayName = String(message.from.first_name).slice(0, 100);
+    if (message.from?.last_name) profile.lastName = String(message.from.last_name).slice(0, 100);
+    if (message.from?.username) profile.username = String(message.from.username).slice(0, 100);
     await saveProfile(userId, profile);
 
     if (/^\/(xp|intimidade)(?:\s|$)/i.test(text)) {
@@ -1056,14 +1062,40 @@ async function processTelegramUpdate(update) {
       await sendTelegramText(chatId, "💗 AYLA · NÍVEL DE INTIMIDADE\nXP: " + xpResult.xp + "\nNível " + xpResult.after.level + " — " + xpResult.after.name + (next === null ? "\nNível máximo alcançado." : "\nPróximo nível em " + next + " XP.") + "\nInterações: " + profile.interactions + "\n\nNíveis: 1 Desconhecido · 2 Conhecido · 3 Familiar · 4 Amigo · 5 Próximo · 6 Confidente.");
       return;
     }
+    // Chamadas diretas pelo nome são respondidas de forma determinística, sem a IA inventar assunto.
+    const nameCall = normalizedIncoming.replace(/[!?.,…💗💕😊🥹]+/gu, " ").replace(/\\s+/g, " ").trim();
+    const isCallingAyla = /^(?:(?:ei|oi|oie|ola|olá)\\s+)?ayla(?:\\s+(?:oi|ola|olá|tudo bem|ta ai|tá aí|esta ai|está aí|me escuta|responde|acorda))?$/.test(nameCall);
+    if (isCallingAyla) {
+      const replies = isKyodai
+        ? ["Oi, senhor, tô aqui. 💗 Pode falar comigo.", "Oi, Kyodai. Tô te ouvindo, senhor. O que foi?", "Hum? Tô aqui sim, senhor. Me fala."]
+        : ["Oi! Tô aqui 😊 O que foi?", "Oii, pode falar comigo 💗", "Oi, tô te ouvindo. Me conta."];
+      const recent = Array.isArray(profile.recentNameCallReplies) ? profile.recentNameCallReplies : [];
+      const fresh = replies.filter(reply => !recent.includes(reply));
+      const pool = fresh.length ? fresh : replies;
+      const answer = pool[Math.floor(Math.random() * pool.length)];
+      profile.recentNameCallReplies = [...recent, answer].slice(-3);
+      rememberConversationEvent(profile, { role: "user", text, at: Date.now() });
+      rememberConversationEvent(profile, { role: "assistant", text: answer, at: Date.now() });
+      await saveProfile(userId, profile);
+      await sendTelegramText(chatId, answer);
+      runtimeDiagnostics.repliesGenerated += 1;
+      runtimeDiagnostics.repliesSent += 1;
+      runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
+      addRuntimeEvent("success", "Chamada pelo nome reconhecida");
+      return;
+    }
+
     const askingForPhoto = /\b(manda|envia|me manda|me envia|quero|mostra|mostre|cad[eê]|manda ai|manda aí).{0,35}\b(foto|selfie|imagem|uma foto|foto sua|foto dela|foto de voce|foto de você|fotos)\b|\b(foto|selfie|imagem)\b.{0,25}\b(manda|envia|quero|mostra|me mostra)\b/.test(normalizedIncoming);
     if (askingForPhoto) {
       const chosenPhoto = await chooseTelegramPhoto(text);
-      if (chosenPhoto) {
-        await sendTelegramPhoto(chatId, chosenPhoto.path, "Uma fotinha pra você, senhor 💗");
-      } else {
-        await sendTelegramText(chatId, "Queria te mandar sim, senhor 💗 Mas ainda não encontrei fotos nas pastas do deploy. Confere se as imagens foram enviadas ao GitHub nas pastas media/fotos e se o Render já fez o deploy.");
-      }
+      const photoReply = chosenPhoto
+        ? "Uma fotinha pra você, " + (isKyodai ? "senhor" : (profile.displayName || "aí")) + " 💗"
+        : "Queria te mandar sim 💗 Mas ainda não encontrei fotos nas pastas do deploy. Confere se as imagens foram enviadas ao GitHub nas pastas media/fotos e se o Render já fez o deploy.";
+      rememberConversationEvent(profile, { role: "user", text, at: Date.now() });
+      rememberConversationEvent(profile, { role: "assistant", text: photoReply, at: Date.now() });
+      await saveProfile(userId, profile);
+      if (chosenPhoto) await sendTelegramPhoto(chatId, chosenPhoto.path, photoReply);
+      else await sendTelegramText(chatId, photoReply);
       return;
     }
     const intimacyContext = "NÍVEL DE INTIMIDADE COM ESTA PESSOA: " + xpResult.after.name + " (nível " + xpResult.after.level + ", " + xpResult.xp + " XP). Ajuste familiaridade e carinho a esse nível. Os níveis são: Desconhecido, Conhecido, Familiar, Amigo, Próximo, Confidente. Não diga que não conhece o criador quando perguntarem quem é seu senhor/criador; o criador da Ayla é Kyodai, responsável pelo projeto Enterex.";
