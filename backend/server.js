@@ -881,8 +881,9 @@ function phraseFallback(message, profile) {
 
   // Responde ao conteúdo da mensagem e ao contexto: se Ayla perguntou como a pessoa está,
   // reconhece "tô bem" como resposta e continua a conversa sem perguntar a mesma coisa de novo.
-  const askedHowUserIs = /(como (tu|cê|voce|você) (t[aá]|est[aá])|como (vai|anda)|tudo bem contigo|tudo certo por a[ií]|como (voc[eê]|tu) est[aá] se sentindo)/i.test(previousAssistant);
-  if (askedHowUserIs && /\\b(t[oô] bem|estou bem|t[aá] tudo bem|tudo certo|tudo tranquilo|tudo na paz|suave|de boa|bem sim|t[oô] legal|estou legal|t[oô] ótima?|t[oô] ótimo|melhor agora)\\b/i.test(t)) {
+  const askedHowUserIs = /(como\s+(tu|cê|voce|você)\s+(t[aá]|est[aá])|como\s+(vai|anda)|tudo bem(\s+contigo|\s+com você)?|tudo certo(\s+por a[ií])?|como\s+(voc[eê]|tu)\s+est[aá]\s+se\s+sentindo|como\s+voc[eê]\s+t[aá]|como\s+tu\s+t[aá])/i.test(previousAssistant);
+  // Respostas positivas: reconhecer variações comuns de "tô bem" sem exigir a frase exata.
+  if (askedHowUserIs && /\b(t[oô]\s*bem|estou\s*bem|t[aá]\s*tudo\s*bem|tudo\s*certo|tudo\s*tranquilo|tudo\s*na\s*paz|suave|de\s*boa|bem\s*sim|t[oô]\s*legal|estou\s*legal|t[oô]\s*ótim[oa]|estou\s*ótim[oa]|melhor\s*agora|t[aá]\s*de\s*boa|t[aá]\s*suave|tranquil[oa]|tudo\s*em\s*ordem|tudo\s*certinho|na\s*paz|t[oô]\s*viv[oa]|t[oô]\s*de\s*boa|tudo\s*bem\s*por\s*aqui|tô\s*indo\s*bem)\b/i.test(t)) {
     return choose([
       "aaah, que bom 💗 fico feliz. O que tu tá fazendo agora?",
       "que bomm 😊 teu dia tá sendo tranquilo também?",
@@ -893,25 +894,34 @@ function phraseFallback(message, profile) {
       "que ótimo! ✨ hoje foi de boa contigo ou foi corrido?",
       "ainda bemm 💗 e o que tu anda aprontando hoje?",
       "boa 😊 tá descansando ou tá no corre agora?",
-      "que bom, de verdade 💗 tem algum plano pra hoje?"
+      "que bom, de verdade 💗 tem algum plano pra hoje?",
+      "ahh, fico feliz que esteja tudo certo contigo 🫶 o que tu fez hoje?",
+      "sabia que tu ia me responder kkk 💗 tá tendo um dia bom?",
+      "own, ainda bem 😊 quer me contar como foi teu dia?",
+      "que bomm, de coração 💗 tá de boa em casa ou saiu?",
+      "aí sim! Espero que continue assim. Qual foi a melhor parte do teu dia?"
     ]);
   }
-  if (askedHowUserIs && /\\b(mais ou menos|nem bem nem mal|indo|levando|na medida do poss[ií]vel|j[aá] estive melhor|podia estar melhor)\\b/i.test(t)) {
+  if (askedHowUserIs && /\b(mais\s*ou\s*menos|nem\s*bem\s*nem\s*mal|indo|levando|na\s*medida\s*do\s*poss[ií]vel|j[aá]\s*estive\s*melhor|podia\s*estar\s*melhor|mais\s*ou\s*menos|assim\s*assim|mais\s*ou\s*menos\s*mesmo|d[aá]\s*pra\s*ir|t[oô]\s*indo)\b/i.test(t)) {
     return choose([
       "hmm, entendi… foi alguma coisa que aconteceu ou só um dia meio assim? 💗",
       "ahh, saquei. Quer me contar o que tá deixando as coisas mais ou menos?",
       "entendi, mn. Espero que melhore um pouquinho. Teu dia foi puxado?",
       "sei… tem dias assim mesmo. Quer conversar sobre isso ou prefere distrair a cabeça?",
-      "poxa, tomara que fique melhor 💗 aconteceu algo ou tu só tá cansado?"
+      "poxa, tomara que fique melhor 💗 aconteceu algo ou tu só tá cansado?",
+      "hmm, entendi. Não tá ruim, mas também não tá lá essas coisas, né? Quer falar sobre isso?",
+      "saquei… espero que o resto do dia seja mais leve pra ti 💗"
     ]);
   }
-  if (askedHowUserIs && /\\b(mal|n[aã]o t[oô] bem|n[aã]o estou bem|p[eé]ssim[oa]|triste|cansad[oa]|exaust[oa])\\b/i.test(t)) {
+  if (askedHowUserIs && /\b(mal|n[aã]o\s*t[oô]\s*bem|n[aã]o\s*estou\s*bem|p[eé]ssim[oa]|triste|cansad[oa]|exaust[oa]|t[oô]\s*ruim|n[aã]o\s*muito|n[aã]o\s*muito\s*bem|meio\s*mal|desanimad[oa]|pra\s*baixo|pra\s*baixo|t[oô]\s*na\s*bad)\b/i.test(t)) {
     return choose([
       "poxa, sinto muito 🥺 aconteceu alguma coisa?",
       "ahh, vem cá… quer me contar o que houve? 💗",
       "entendi, mn. Foi um dia difícil ou tem algo te preocupando?",
       "sinto muito que tu esteja assim. Quer desabafar ou prefere conversar sobre outra coisa?",
-      "ei, tô te ouvindo. O que tá pegando?"
+      "ei, tô te ouvindo. O que tá pegando?",
+      "poxa… queria que tu estivesse melhor 🥺 quer companhia pra conversar um pouco?",
+      "entendi. Não precisa fingir que tá tudo bem comigo, viu? Pode falar."
     ]);
   }
   if (/^(sim+|s|ss|isso|exato|aham|uhum|claro)[!.?\s]*$/i.test(t)) {
