@@ -394,13 +394,14 @@ function addTelegramXp(profile, amount = 1) {
   return { before, after, xp: profile.xp, leveledUp: after.level > before.level };
 }
 
-async function sendTelegramPhoto(chatId, relativePath, caption = "") {
+async function sendTelegramPhoto(chatId, relativePath, caption = "", replyMarkup = null) {
   if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
   if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de foto inválido.");
   const bytes = await readFile(join(PHOTO_DIR, relativePath));
   const form = new FormData();
   form.append("chat_id", String(chatId));
   if (caption) form.append("caption", String(caption).slice(0, 900));
+  if (replyMarkup) form.append("reply_markup", JSON.stringify(replyMarkup));
   const name = relativePath.split("/").pop();
   const mime = /\.png$/i.test(name) ? "image/png" : /\.webp$/i.test(name) ? "image/webp" : "image/jpeg";
   form.append("photo", new Blob([bytes], { type: mime }), name);
@@ -808,6 +809,23 @@ async function answerTelegramCallback(q) {
   const id = String(q.from.id);
   const chatId = q.message?.chat?.id;
   const key = String(q.data || "");
+  if (key === "admin:login") {
+    if (id !== KYODAI_TELEGRAM_USER_ID || !id) {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+        method:"POST", headers:{"content-type":"application/json"},
+        body:JSON.stringify({callback_query_id:q.id,text:"Acesso negado. Este botão só autoriza o criador cadastrado.",show_alert:true}),
+        signal:AbortSignal.timeout(8000)
+      }).catch(()=>{});
+      return;
+    }
+    await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body:JSON.stringify({callback_query_id:q.id,text:"Login ADM confirmado para Kyodai. 🔐",show_alert:true}),
+      signal:AbortSignal.timeout(8000)
+    }).catch(()=>{});
+    if (chatId !== undefined) await sendTelegramText(chatId, "🔓 Acesso ADM confirmado, senhor Kyodai. Sua identidade foi validada pelo ID autorizado do Telegram. Se estiver usando outro celular com a mesma conta do Telegram, o acesso continua sendo reconhecido.");
+    return;
+  }
   if (key.startsWith("failover:")) {
     if (id !== KYODAI_TELEGRAM_USER_ID) {
       await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Só o criador pode autorizar a troca.",show_alert:true}) }).catch(()=>{});
@@ -909,6 +927,26 @@ async function processTelegramUpdate(update) {
     } catch (error) {
       recordDiagnosticError("telegram.test_audio_send", error);
       await sendTelegramText(chatId, "Tentei mandar o áudio, mas o Telegram recusou o envio. Abre /status pra conferir o erro.");
+    }
+    return;
+  }
+  if (text === "/login" || text === "/adm" || text === "/login_admin") {
+    if (!isKyodai) {
+      await sendTelegramText(chatId, "🔒 Acesso administrativo restrito. Só o criador autorizado pode iniciar esse login.");
+      return;
+    }
+    let loginPhoto = null;
+    try {
+      const entries = await readdir(join(PHOTO_DIR, "login"), { withFileTypes: true });
+      const files = entries.filter(entry => entry.isFile() && /\\.(jpe?g|png|webp)$/i.test(entry.name));
+      if (files.length) loginPhoto = "login/" + files[Math.floor(Math.random() * files.length)].name;
+    } catch {}
+    const keyboard = { inline_keyboard: [[{ text: "🔐 ENTRAR COMO ADM", callback_data: "admin:login" }]] };
+    const caption = "ENTEREX · ÁREA ADMINISTRATIVA\\n\\nConfirme o acesso usando o botão abaixo. Este botão só funciona para o ID autorizado do criador.";
+    if (loginPhoto) {
+      await sendTelegramPhoto(chatId, loginPhoto, caption, keyboard);
+    } else {
+      await sendTelegramText(chatId, "🖤 ENTEREX · ÁREA ADMINISTRATIVA\\n\\nAinda falta a imagem de login. Envie um arquivo JPG, PNG ou WEBP para media/fotos/login/ no GitHub. Depois use /login novamente.", keyboard);
     }
     return;
   }
