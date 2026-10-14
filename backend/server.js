@@ -854,7 +854,7 @@ function phraseFallback(message, profile) {
   };
 
   // Interpreta mensagens formadas apenas por emojis antes de cair na resposta genérica.
-  const emojiOnly = t.replace(/[\\p{Extended_Pictographic}\\uFE0F\\u200D\\s.,!?]/gu, "").length === 0;
+  const emojiOnly = t.replace(/[\p{Extended_Pictographic}\uFE0F\u200D\s.,!?]/gu, "").length === 0;
   if (emojiOnly && t) {
     if (/[❤💕💞💓💗💖💘💝💟🩷🫶]/u.test(t)) return choose([
       "ain, um coração pra mim? 💗🥹",
