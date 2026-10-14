@@ -24,7 +24,7 @@ const localProfiles = new Map();
 let pool = null;
 let dbReady = false;
 const slangDictionary = {mn:"mano",slk:"se loko",tlgd:"tá ligado",pprt:"papo reto",blz:"beleza",suave:"tranquilo","mó":"muito",vish:"surpresa",eae:"e aí",eai:"e aí",tmj:"tamo junto",mds:"meu Deus",nss:"nossa",tbm:"também",vc:"você",pq:"por que/porque",kkk:"risada",kkkk:"risada",kkkkk:"risada",amg:"amigo/amiga",sdd:"saudade",paia:"ruim/desagradável",aff:"irritação",parça:"parceiro",mano:"mano","véi":"velho",vei:"velho","cê":"você"};
-const MAX_BODY_BYTES = 12_000_000;
+const MAX_BODY_BYTES = 16_000;
 const MAX_MESSAGE_CHARS = 4_000;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
@@ -239,11 +239,11 @@ function rateLimited(req) {
   return entry.count > MAX_REQUESTS_PER_WINDOW;
 }
 
-async function readJson(req) {
+async function readJson(req, maxBytes = MAX_BODY_BYTES) {
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) {
+    if (Buffer.byteLength(body, "utf8") > maxBytes) {
       throw Object.assign(new Error("Corpo muito grande."), { status: 413 });
     }
   }
@@ -1144,7 +1144,7 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && requestUrl.pathname === "/media/file") {
     try {
       const p = safeMediaPath(requestUrl.searchParams.get("path"));
-      const file = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(MEDIA_BRANCH), { headers: { "accept": "application/vnd.github.raw+json" } });
+      const file = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(MEDIA_BRANCH), {});
       if (typeof file.content !== "string") return send(res, 502, { error: "O arquivo não veio em formato legível." });
       const bytes = Buffer.from(file.content.replace(/\n/g, ""), "base64");
       const ext = p.split(".").pop().toLowerCase();
@@ -1156,7 +1156,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "POST" && requestUrl.pathname === "/media/upload") {
     try {
-      const body = await readJson(req);
+      const body = await readJson(req, 12_000_000);
       const p = safeMediaPath(body.path);
       if (typeof body.contentBase64 !== "string" || !body.contentBase64 || body.contentBase64.length > 12_000_000) return send(res, 413, { error: "Arquivo vazio ou maior que o limite de 8 MB." });
       const content = body.contentBase64.replace(/^data:[^;]+;base64,/, "");
