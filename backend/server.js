@@ -868,6 +868,80 @@ async function answerTelegramCallback(q) {
   const id = String(q.from.id);
   const chatId = q.message?.chat?.id;
   const key = String(q.data || "");
+  if (key.startsWith("adultvideo:")) {
+    if (id !== KYODAI_TELEGRAM_USER_ID || !id || q.message?.chat?.type !== "private") {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+        method:"POST", headers:{"content-type":"application/json"},
+        body:JSON.stringify({callback_query_id:q.id,text:"Acesso restrito ao criador autorizado.",show_alert:true}),
+        signal:AbortSignal.timeout(8000)
+      }).catch(()=>{});
+      return;
+    }
+    if (key === "adultvideo:close") {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+        method:"POST", headers:{"content-type":"application/json"},
+        body:JSON.stringify({callback_query_id:q.id,text:"Lista fechada."}),
+        signal:AbortSignal.timeout(8000)
+      }).catch(()=>{});
+      if (chatId !== undefined && q.message?.message_id) {
+        await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
+          method:"POST", headers:{"content-type":"application/json"},
+          body:JSON.stringify({chat_id:chatId,message_id:q.message.message_id}),
+          signal:AbortSignal.timeout(8000)
+        }).catch(()=>{});
+      }
+      return;
+    }
+    const index = Number(key.slice("adultvideo:".length));
+    if (!Number.isInteger(index) || index < 0 || index > 999) {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+        method:"POST", headers:{"content-type":"application/json"},
+        body:JSON.stringify({callback_query_id:q.id,text:"Escolha inválida.",show_alert:true})
+      }).catch(()=>{});
+      return;
+    }
+    await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body:JSON.stringify({callback_query_id:q.id,text:"Preparando o vídeo…"}),
+      signal:AbortSignal.timeout(8000)
+    }).catch(()=>{});
+    let videos = [];
+    try {
+      videos = (await readdir(ADULT_VIDEO_DIR, { withFileTypes: true }))
+        .filter(entry => entry.isFile() && /\.(mp4|mov|m4v|webm)$/i.test(entry.name))
+        .map(entry => entry.name)
+        .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    } catch (error) {
+      recordDiagnosticError("telegram.adult_video_list", error);
+    }
+    if (!videos[index]) {
+      if (chatId !== undefined) await sendTelegramText(chatId, "Esse vídeo não está mais disponível. Envie /18 para atualizar a lista.");
+      return;
+    }
+    try {
+      const sent = await sendTelegramVideo(chatId, videos[index], "🔞 Biblioteca privada");
+      addRuntimeEvent("info", "Vídeo escolhido manualmente enviado pelo comando /18", { index });
+      if (sent?.message_id) {
+        const targetChatId = chatId;
+        const targetMessageId = sent.message_id;
+        const timer = setTimeout(() => {
+          fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
+            method:"POST", headers:{"content-type":"application/json"},
+            body:JSON.stringify({chat_id:targetChatId,message_id:targetMessageId}),
+            signal:AbortSignal.timeout(10000)
+          }).then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok !== true) addRuntimeEvent("warning", "Não foi possível apagar o vídeo após 40 minutos", { description: data.description || response.status });
+          }).catch(error => recordDiagnosticError("telegram.adult_video_delete", error));
+        }, 40 * 60 * 1000);
+        timer.unref?.();
+      }
+    } catch (error) {
+      recordDiagnosticError("telegram.adult_video_send", error);
+      await sendTelegramText(chatId, "Não consegui enviar esse vídeo. Confere o formato e o tamanho do arquivo e tenta novamente.");
+    }
+    return;
+  }
   if (key === "admin:login") {
     if (id !== KYODAI_TELEGRAM_USER_ID || !id) {
       await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
@@ -990,15 +1064,16 @@ async function processTelegramUpdate(update) {
     return;
   }
   if (text === "/18" || text.startsWith("/18@")) {
-    if (!isKyodai) {
-      await sendTelegramText(chatId, "🔞 Esse comando é restrito ao criador da Ayla.");
+    if (!isKyodai || message?.chat?.type !== "private") {
+      await sendTelegramText(chatId, "🔞 Esse comando funciona somente no PV do criador autorizado.");
       return;
     }
     let videos = [];
     try {
       videos = (await readdir(ADULT_VIDEO_DIR, { withFileTypes: true }))
         .filter(entry => entry.isFile() && /\.(mp4|mov|m4v|webm)$/i.test(entry.name))
-        .map(entry => entry.name);
+        .map(entry => entry.name)
+        .sort((a, b) => a.localeCompare(b, "pt-BR"));
     } catch (error) {
       recordDiagnosticError("telegram.adult_video_list", error);
     }
@@ -1006,14 +1081,15 @@ async function processTelegramUpdate(update) {
       await sendTelegramText(chatId, "🔞 Ainda não encontrei vídeos em media/18+. Envie vídeos MP4, MOV, M4V ou WEBM para essa pasta no GitHub e aguarde o deploy.");
       return;
     }
-    const selected = videos[Math.floor(Math.random() * videos.length)];
-    try {
-      await sendTelegramVideo(chatId, selected, "🔞 Vídeo aleatório · Área 18+");
-      addRuntimeEvent("info", "Vídeo aleatório 18+ enviado pelo comando /18");
-    } catch (error) {
-      recordDiagnosticError("telegram.adult_video_send", error);
-      await sendTelegramText(chatId, "Não consegui enviar esse vídeo. Confere o formato e o tamanho do arquivo e tenta novamente.");
+    const rows = [];
+    for (let i = 0; i < videos.length; i += 2) {
+      rows.push(videos.slice(i, i + 2).map((name, offset) => ({
+        text: (i + offset + 1) + ". " + name.slice(0, 45),
+        callback_data: "adultvideo:" + (i + offset)
+      })));
     }
+    rows.push([{ text: "✖ Fechar lista", callback_data: "adultvideo:close" }]);
+    await sendTelegramText(chatId, "🔞 **BIBLIOTECA DE VÍDEOS**\n\nEscolhe qual vídeo quer receber. A mensagem enviada será apagada pelo bot após 40 minutos, se o bot continuar online.", { inline_keyboard: rows });
     return;
   }
   if (text === "/login" || text === "/adm" || text === "/login_admin") {
