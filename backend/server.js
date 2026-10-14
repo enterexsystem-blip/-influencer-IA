@@ -300,12 +300,19 @@ function chooseTelegramDelay(message, level) {
   return Math.min(8500, 1200 + Math.floor(Math.random() * 1800) + words * 180 + Math.floor(text.length * 12));
 }
 
+function chooseTelegramTypingDuration(message) {
+  const text = String(message || "").trim();
+  const words = text.split(/\\s+/).filter(Boolean).length;
+  const chars = text.length;
+  return Math.max(1200, Math.min(12000, 900 + words * 260 + chars * 24 + Math.floor(Math.random() * 1400)));
+}
+
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function simulateTelegramTyping(chatId, sourceMessage) {
-  const total = chooseTelegramDelay(sourceMessage, 1);
+  const total = chooseTelegramTypingDuration(sourceMessage);
   const interruptions = Math.random() < 0.5 ? 1 + Math.floor(Math.random() * 2) : 0;
   if (!interruptions) {
     await sendTelegramTyping(chatId);
@@ -505,7 +512,7 @@ async function processTelegramUpdate(update) {
     await sendTelegramText(chatId, "Prontinho 💗 " + note);
     return;
   }
-  if (text.startsWith("/") && !text.startsWith("/nivel")) { await sendTelegramText(chatId, "Não conheço esse comando ainda. Digite /menu para ver os comandos disponíveis."); return; }
+  if (text.startsWith("/") && !text.startsWith("/nivel")) { await sendTelegramText(chatId, "Abre /menu para ver os controles da Ayla.", aylaMenuKeyboard()); return; }
   if (text.startsWith("/nivel")) {
     const requested = Number(text.split(/\s+/)[1]);
     if (![1, 2, 3, 4].includes(requested)) {
@@ -560,8 +567,8 @@ async function processTelegramUpdate(update) {
       console.log("Ayla escolheu não responder a esta mensagem (nível 3).");
       return;
     }
-    const delay = isKyodai ? 250 : chooseTelegramDelay(text, level);
-    const responseMode = ["texto", "audio", "ambos"].includes(profile.telegramMode) ? profile.telegramMode : "texto";
+    const delay = isKyodai ? 350 : chooseTelegramDelay(text, level);
+    const responseMode = "audio";
     await scheduleTelegramReply(chatId, reply, text, delay, responseMode);
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
   } catch (error) {
