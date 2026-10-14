@@ -804,7 +804,7 @@ async function processTelegramUpdate(update) {
     let files = [];
     try {
       files = (await readdir(join(AUDIO_DIR, folderName), { withFileTypes: true }))
-        .filter(entry => entry.isFile() && /\\.(mp3|wav|ogg|m4a|aac|opus|flac)$/i.test(entry.name))
+        .filter(entry => entry.isFile() && /\.(mp3|wav|ogg|m4a|aac|opus|flac)$/i.test(entry.name))
         .map(entry => entry.name);
     } catch (error) {
       recordDiagnosticError("telegram.test_audio_list", error);
