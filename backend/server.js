@@ -24,6 +24,7 @@ const TELEGRAM_WEBHOOK_BASE_URL = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().
 const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "";
 const seenTelegramUpdateIds = new Map();
 let telegramWebhookRegistered = false;
+let telegramWebhookLastError = null;
 const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").trim();
 const seenInstagramMessageIds = new Map();
 const instagramLastReply = new Map();
@@ -310,6 +311,7 @@ const server = createServer(async (req, res) => {
       telegram: {
         configured: Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_WEBHOOK_SECRET),
         webhookReady: telegramWebhookRegistered,
+        webhookLastError: telegramWebhookLastError,
         baseUrlConfigured: Boolean(TELEGRAM_WEBHOOK_BASE_URL),
         webhookPath: "/telegram/webhook"
       }
@@ -700,6 +702,7 @@ server.listen(PORT, "0.0.0.0", () => {
     }).then(async response => {
       const data = await response.json().catch(() => ({}));
       telegramWebhookRegistered = Boolean(response.ok && data.ok === true);
+      telegramWebhookLastError = telegramWebhookRegistered ? null : (data.description || `Telegram HTTP ${response.status}`);
       if (!telegramWebhookRegistered) {
         console.error("Falha ao registrar webhook do Telegram:", response.status, data.description || "resposta inválida");
       } else {
@@ -707,7 +710,8 @@ server.listen(PORT, "0.0.0.0", () => {
       }
     }).catch(error => {
       telegramWebhookRegistered = false;
-      console.error("Falha ao registrar webhook do Telegram:", error?.message || "erro de rede");
+      telegramWebhookLastError = error?.message || "erro de rede";
+      console.error("Falha ao registrar webhook do Telegram:", telegramWebhookLastError);
     });
   }
 });
