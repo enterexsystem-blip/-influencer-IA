@@ -1,18 +1,24 @@
 # Biblioteca de áudio da Ayla
 
-## Categorias
-- `01-cumprimentos/` — 7 variações de “oi”, com emoções e entonações diferentes.
-- `02-respostas-curtas/` — respostas breves sobre como ela está.
-- `03-emocoes/` — falas ligadas a sentimentos.
-- `04-ausencias-desculpas/` — explicações de rotina e demora para responder.
-- `05-encerrar-conversa/` — reservado para despedidas e encerramentos.
-- `06-exclusivos-kyodai/` — reservado para falas exclusivas do criador.
+## Estado atual
+
+Os áudios enviados estão preservados em `01-cumprimentos/`, com os nomes originais e sem extensão de arquivo. Não foram renomeados nem apagados. O arquivo `-influencer-IA-main.zip` é um ZIP do projeto inteiro, não um pacote exclusivo de áudio; o seletor de gravações ignora esse ZIP.
 
 ## Catálogo
-O arquivo `catalog.json` registra a transcrição/ intenção e o caminho de destino para cada um dos 12 áudios únicos recebidos até agora. O mesmo áudio “Estou bem, obrigada” foi enviado novamente; foi catalogado uma única vez.
 
-## Importante: arquivos de áudio
-Os nomes e conteúdos identificáveis foram catalogados e organizados por pasta de destino. Os MP3 originais ainda estão anexados à conversa, não dentro deste repositório. O conector atual do GitHub só permite criar/editar arquivos de texto, então não consigo afirmar que os binários foram enviados. Para a Ayla tocar esses áudios, os MP3 precisam ser copiados para os caminhos listados no catálogo (ou para um armazenamento de mídia acessível ao backend).
+`catalog.json` indexa os arquivos encontrados no repositório, com tamanho, hash, caminho atual e uma categoria sugerida a partir do nome. As transcrições sugeridas são apenas pistas do nome do arquivo — ainda não foram confirmadas ouvindo cada áudio. Arquivos com o mesmo hash são cópias binariamente idênticas.
 
-## Convenção
-Use nomes em minúsculas, sem espaços ou acentos. Registre transcrição, intenção, emoção, tags e destinatário permitido (`todos` ou `kyodai`). A regra de destinatário também deve ser validada no código, não apenas pela pasta.
+## Categorias sugeridas
+
+- `01-cumprimentos/` — saudações.
+- `02-respostas-curtas/` — respostas breves e reações.
+- `03-emocoes/` — falas marcadas com emoções.
+- `04-ausencias-desculpas/` — demora, banho, sono e explicações.
+- `05-encerrar-conversa/` — despedidas e bloqueio.
+- `06-exclusivos-kyodai/` — falas direcionadas ao criador e conteúdo íntimo.
+
+As categorias no catálogo são sugestões de organização; os arquivos físicos permanecem onde estão para não quebrar os caminhos. O backend agora localiza gravações compatíveis pelo nome real, em vez de exigir nomes fixos como `oi_animado.mp3`.
+
+## Segurança e preservação
+
+Não apague os arquivos-fonte até conferir as gravações e validar o funcionamento no Telegram. O backend exclui gravações íntimas da seleção automática comum. Antes de liberar áudios exclusivos, valide no código que só o destinatário autorizado possa recebê-los.
