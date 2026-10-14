@@ -413,13 +413,13 @@ async function simulateTelegramTyping(chatId, sourceMessage) {
   const total = chooseTelegramTypingDuration(sourceMessage);
   const interruptions = Math.random() < 0.5 ? 1 + Math.floor(Math.random() * 2) : 0;
   if (!interruptions) {
-    await sendTelegramTyping(chatId);
+    try { await sendTelegramTyping(chatId); } catch (error) { recordDiagnosticError("telegram.typing", error); }
     await wait(total);
     return;
   }
   let remaining = total;
   for (let i = 0; i <= interruptions && remaining > 0; i++) {
-    await sendTelegramTyping(chatId);
+    try { await sendTelegramTyping(chatId); } catch (error) { recordDiagnosticError("telegram.typing", error); }
     const burst = i === interruptions ? remaining : Math.max(350, Math.min(remaining, Math.floor(remaining / (interruptions - i + 1))));
     await wait(burst);
     remaining -= burst;
