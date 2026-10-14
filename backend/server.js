@@ -1063,8 +1063,8 @@ async function processTelegramUpdate(update) {
       return;
     }
     // Chamadas diretas pelo nome são respondidas de forma determinística, sem a IA inventar assunto.
-    const nameCall = normalizedIncoming.replace(/[!?.,…💗💕😊🥹]+/gu, " ").replace(/\\s+/g, " ").trim();
-    const isCallingAyla = /^(?:(?:ei|oi|oie|ola|olá)\\s+)?ayla(?:\\s+(?:oi|ola|olá|tudo bem|ta ai|tá aí|esta ai|está aí|me escuta|responde|acorda))?$/.test(nameCall);
+    const nameCall = normalizedIncoming.replace(/[!?.,…💗💕😊🥹]+/gu, " ").replace(/\s+/g, " ").trim();
+    const isCallingAyla = /^(?:(?:ei|oi|oie|ola|olá)\s+)?ayla(?:\s+(?:oi|ola|olá|tudo bem|ta ai|tá aí|esta ai|está aí|me escuta|responde|acorda))?$/.test(nameCall);
     if (isCallingAyla) {
       const replies = isKyodai
         ? ["Oi, senhor, tô aqui. 💗 Pode falar comigo.", "Oi, Kyodai. Tô te ouvindo, senhor. O que foi?", "Hum? Tô aqui sim, senhor. Me fala."]
