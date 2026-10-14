@@ -1011,6 +1011,17 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "GET" && requestUrl.pathname === "/central") {
+    try {
+      const html = await readFile(join(BACKEND_DIR, "central.html"), "utf8");
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      return res.end(html);
+    } catch (error) {
+      recordDiagnosticError("central.dashboard", error);
+      return send(res, 500, { error: "Central da Ayla indisponível. Tente /diagnostics." });
+    }
+  }
+
   if (req.method === "GET" && requestUrl.pathname === "/diagnostics") {
     try {
       const html = await readFile(join(BACKEND_DIR, "diagnostics.html"), "utf8");
