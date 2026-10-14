@@ -20,6 +20,7 @@ const INSTAGRAM_APP_SECRET = process.env.META_APP_SECRET?.trim() || "";
 const INSTAGRAM_VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN?.trim() || "";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || "";
+const TELEGRAM_WEBHOOK_BASE_URL = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().replace(/\\/$/, "") || "";
 const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "";
 const seenTelegramUpdateIds = new Map();
 const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").trim();
@@ -209,6 +210,7 @@ async function processTelegramUpdate(update) {
   const chatId = message?.chat?.id;
   const text = typeof message?.text === "string" ? message.text.trim() : "";
   if (!senderId || chatId === undefined || !text || message?.from?.is_bot) return;
+  if (text === "/id") { await sendTelegramText(chatId, "Seu ID numérico do Telegram é: " + senderId + "\\nGuarde esse número e cadastre no Render em KYODAI_TELEGRAM_USER_ID. Não é um token secreto."); return; }
   if (text === "/start" || text.startsWith("/start ")) {
     await sendTelegramText(chatId, "Oii, eu sou a Ayla 💗 Pode conversar comigo por aqui. Minha memória é separada por conta até que uma vinculação segura seja concluída.");
     return;
@@ -658,5 +660,17 @@ function phraseFallback(message, profile) {
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Influencer IA backend ouvindo na porta ${PORT}; provedor Google Gemini; modelo ${MODEL}`);
+  console.log(`Influencer IA backend ouvindo na porta ${PORT}; provedor ${PROVIDER}; modelo ${MODEL}`);
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_WEBHOOK_SECRET && TELEGRAM_WEBHOOK_BASE_URL) {
+    const webhookUrl = TELEGRAM_WEBHOOK_BASE_URL + "/telegram/webhook";
+    fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/setWebhook", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: webhookUrl, secret_token: TELEGRAM_WEBHOOK_SECRET, allowed_updates: ["message"] }),
+      signal: AbortSignal.timeout(15000)
+    }).then(async response => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok !== true) console.error("Não foi possível registrar webhook do Telegram.");
+      else console.log("Webhook do Telegram registrado.");
+    }).catch(() => console.error("Falha ao registrar webhook do Telegram."));
+  }
 });
