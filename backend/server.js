@@ -334,20 +334,34 @@ async function deliverScheduledTelegramReply(job) {
       scheduledTelegramTimers.set(String(job.id ?? job.localId), timer);
       return;
     }
-    // Só começa a aparecer "digitando..." quando chega a hora de responder.
     const sourceMessage = job.source_message ?? job.sourceMessage ?? "";
-    await simulateTelegramTyping(chatId, sourceMessage);
     const replyText = String(job.reply || "");
-    if (replyText.startsWith("__AYLA_AUDIO__")) {
-      const audioPath = chooseTelegramAudio(sourceMessage, replyText.slice("__AYLA_AUDIO__".length));
-      if (audioPath) {
-        const sent = await sendTelegramAudio(chatId, audioPath);
-        if (!sent) console.log("Ayla ficou em silêncio: o áudio correspondente ainda não está instalado:", audioPath);
-        else console.log("Áudio original da Ayla enviado:", audioPath);
+    const isAudioReply = replyText.startsWith("__AYLA_AUDIO__");
+    const audioPath = isAudioReply
+      ? chooseTelegramAudio(sourceMessage, replyText.slice("__AYLA_AUDIO__".length))
+      : null;
+
+    // Não mostrar "digitando..." se já sabemos que não há gravação compatível.
+    if (isAudioReply) {
+      if (!audioPath) {
+        console.log("Ayla não enviou áudio: não há gravação catalogada para esta mensagem.");
       } else {
-        console.log("Ayla ficou em silêncio: não existe áudio catalogado para esta situação.");
+        let audioAvailable = false;
+        try {
+          await readFile(join(AUDIO_DIR, audioPath));
+          audioAvailable = true;
+        } catch {
+          console.log("Ayla não enviou áudio: arquivo MP3 ausente no deploy:", audioPath);
+        }
+        if (audioAvailable) {
+          await simulateTelegramTyping(chatId, sourceMessage);
+          const sent = await sendTelegramAudio(chatId, audioPath);
+          if (!sent) console.log("Ayla não enviou áudio: não foi possível ler o MP3:", audioPath);
+          else console.log("Áudio original da Ayla enviado:", audioPath);
+        }
       }
     } else {
+      await simulateTelegramTyping(chatId, sourceMessage);
       await sendTelegramText(chatId, replyText);
       console.log("Resposta em texto da Ayla enviada.");
     }
