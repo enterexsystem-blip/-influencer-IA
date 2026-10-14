@@ -795,6 +795,35 @@ async function processTelegramUpdate(update) {
   const userId = "telegram:" + senderId;
   const isKyodai = Boolean(KYODAI_TELEGRAM_USER_ID && senderId === KYODAI_TELEGRAM_USER_ID);
   if (text === "/id") { await sendTelegramText(chatId, "Seu ID numérico do Telegram é: " + senderId + "\nGuarde esse número e cadastre no Render em KYODAI_TELEGRAM_USER_ID. Não é um token secreto."); return; }
+  if (text === "/audio" || text === "/teste_audio") {
+    if (!isKyodai) {
+      await sendTelegramText(chatId, "Esse teste de áudio é exclusivo do criador da Ayla.");
+      return;
+    }
+    const folderName = "Ransom - aqui vou colocar audios novos";
+    let files = [];
+    try {
+      files = (await readdir(join(AUDIO_DIR, folderName), { withFileTypes: true }))
+        .filter(entry => entry.isFile() && /\\.(mp3|wav|ogg|m4a|aac|opus|flac)$/i.test(entry.name))
+        .map(entry => entry.name);
+    } catch (error) {
+      recordDiagnosticError("telegram.test_audio_list", error);
+    }
+    if (!files.length) {
+      await sendTelegramText(chatId, "Ainda não encontrei os MP3s da pasta Ransom no deploy. O servidor precisa terminar o deploy com os arquivos de áudio.");
+      return;
+    }
+    const selected = files[Math.floor(Math.random() * files.length)];
+    await sendTelegramText(chatId, "Escolhi um áudio aleatório da pasta Ransom pra ti, Kyodai 🎧");
+    try {
+      const sent = await sendTelegramAudio(chatId, folderName + "/" + selected);
+      if (!sent) await sendTelegramText(chatId, "Não consegui enviar o arquivo de áudio. Confere o diagnóstico do servidor.");
+    } catch (error) {
+      recordDiagnosticError("telegram.test_audio_send", error);
+      await sendTelegramText(chatId, "Tentei mandar o áudio, mas o Telegram recusou o envio. Abre /status pra conferir o erro.");
+    }
+    return;
+  }
   if (text === "/start" || text.startsWith("/start ")) {
     const profile = await loadProfile(userId);
     if (!["texto", "audio", "ambos"].includes(profile.telegramMode)) profile.telegramMode = "texto";
