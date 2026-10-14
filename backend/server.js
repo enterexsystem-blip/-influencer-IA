@@ -972,6 +972,27 @@ async function processTelegramUpdate(update) {
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
     recordDiagnosticError("telegram.generate_or_schedule", error);
     console.error("Falha ao gerar/agendar resposta da Ayla no Telegram:", telegramLastReplyError);
+
+    // Recuperação: se o provedor de IA falhar, a Ayla ainda responde usando a biblioteca local.
+    // Para o criador, o modo padrão de recuperação é texto + áudio; se não houver áudio compatível,
+    // scheduleTelegramReply mantém o fallback em texto.
+    try {
+      const recoveryProfile = await loadProfile(userId);
+      const recoveryReply = expandedFallback(text.slice(0, MAX_MESSAGE_CHARS), recoveryProfile);
+      await saveProfile(userId, recoveryProfile);
+      const recoveryMode = ["texto", "audio", "ambos"].includes(recoveryProfile.telegramMode)
+        ? recoveryProfile.telegramMode
+        : "ambos";
+      await scheduleTelegramReply(chatId, recoveryReply, text, isKyodai ? 350 : chooseTelegramDelay(text, 1), recoveryMode);
+      runtimeDiagnostics.repliesGenerated += 1;
+      addRuntimeEvent("success", "Resposta local de recuperação agendada após falha da IA");
+      console.warn("Ayla respondeu usando a biblioteca local após falha do provedor de IA.");
+      return;
+    } catch (recoveryError) {
+      recordDiagnosticError("telegram.local_recovery", recoveryError);
+      console.error("Falha também na recuperação local da Ayla:", recoveryError?.message || "erro");
+    }
+
     const errorText = String(error?.message || "erro desconhecido");
     const diagnosticUrl = "https://influencer-ia-backend.onrender.com/diagnostics";
     const errorReplies = [
