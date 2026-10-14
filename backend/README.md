@@ -86,6 +86,7 @@ Configure no Render:
 - `FISH_AUDIO_API_KEY`: chave da API do Fish Audio.
 - `FISH_AUDIO_REFERENCE_ID`: ID da voz da Ayla no Fish Audio.
 - `FISH_AUDIO_MODEL`: opcional; padrão `s2.1-pro`.
+- `FISH_AUDIO_AUTO_SAVE`: defina `true` para gerar e salvar um MP3 automaticamente após cada resposta gerada pela IA; mantenha `false` durante os testes manuais.
 
 Exemplo de corpo JSON para `POST /tts/fish`:
 ```json
