@@ -8,6 +8,7 @@ import { expandedFallback } from "./local-responses-v2.js";
 const PORT = Number(process.env.PORT || 8080);
 const BACKEND_DIR = dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = join(BACKEND_DIR, "..", "media", "audios");
+const PHOTO_DIR = join(BACKEND_DIR, "..", "media", "fotos");
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
 const API_KEY = KEY_CANDIDATES.find(key => key.startsWith("sk-or-v1-")) || KEY_CANDIDATES[0] || "";
 const PROVIDER = API_KEY.startsWith("sk-or-v1-") ? "openrouter" : (process.env.AI_PROVIDER || "gemini").toLowerCase();
@@ -373,6 +374,64 @@ async function sendTelegramText(chatId, text, replyMarkup = null) {
     throw new Error("A API do Telegram não aceitou a mensagem: " + String(data.description || response.status).slice(0, 200));
   }
   return data.result;
+}
+
+function intimacyForXp(xp) {
+  const value = Math.max(0, Number(xp) || 0);
+  if (value >= 180) return { level: 6, name: "Confidente", next: null, min: 180 };
+  if (value >= 100) return { level: 5, name: "Próximo", next: 180, min: 100 };
+  if (value >= 60) return { level: 4, name: "Amigo", next: 100, min: 60 };
+  if (value >= 30) return { level: 3, name: "Familiar", next: 60, min: 30 };
+  if (value >= 10) return { level: 2, name: "Conhecido", next: 30, min: 10 };
+  return { level: 1, name: "Desconhecido", next: 10, min: 0 };
+}
+
+function addTelegramXp(profile, amount = 1) {
+  const before = intimacyForXp(profile.xp || 0);
+  profile.xp = Math.max(0, Number(profile.xp) || 0) + amount;
+  profile.interactions = Math.max(0, Number(profile.interactions) || 0) + 1;
+  const after = intimacyForXp(profile.xp);
+  return { before, after, xp: profile.xp, leveledUp: after.level > before.level };
+}
+
+async function sendTelegramPhoto(chatId, relativePath, caption = "") {
+  if (!TELEGRAM_BOT_TOKEN) throw new Error("Token do Telegram não configurado.");
+  if (!relativePath || relativePath.includes("..") || relativePath.startsWith("/")) throw new Error("Caminho de foto inválido.");
+  const bytes = await readFile(join(PHOTO_DIR, relativePath));
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  if (caption) form.append("caption", String(caption).slice(0, 900));
+  const name = relativePath.split("/").pop();
+  const mime = /\.png$/i.test(name) ? "image/png" : /\.webp$/i.test(name) ? "image/webp" : "image/jpeg";
+  form.append("photo", new Blob([bytes], { type: mime }), name);
+  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendPhoto", {
+    method: "POST", body: form, signal: AbortSignal.timeout(20000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true) throw new Error("Telegram sendPhoto falhou: " + String(data.description || response.status).slice(0, 200));
+  return data.result;
+}
+
+async function chooseTelegramPhoto(messageText) {
+  const normalized = String(messageText || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  let category = "02-selfies";
+  if (/(unha|esmalte|manicure|pintando as unha)/.test(normalized)) category = "03-unhas";
+  else if (/(comida|comendo|almoco|jantar|lanche|cafe|fome|doce|pizza)/.test(normalized)) category = "04-comidas";
+  else if (/(look|roupa|vestido|blusa|calca|outfit|me vesti)/.test(normalized)) category = "05-looks";
+  else if (/(fazendo|atividade|academia|estudando|passeio|trabalhando|rotina)/.test(normalized)) category = "06-atividades";
+  else if (/(perfil|foto de perfil)/.test(normalized)) category = "01-perfil";
+  const folders = [category, "02-selfies", "01-perfil", "05-looks", "06-atividades", "07-rotina", "04-comidas", "03-unhas"];
+  const seen = new Set();
+  for (const folder of folders) {
+    if (seen.has(folder)) continue;
+    seen.add(folder);
+    try {
+      const entries = await readdir(join(PHOTO_DIR, folder), { withFileTypes: true });
+      const photos = entries.filter(entry => entry.isFile() && /\.(jpe?g|png|webp)$/i.test(entry.name)).map(entry => folder + "/" + entry.name);
+      if (photos.length) return { path: photos[Math.floor(Math.random() * photos.length)], category: folder };
+    } catch {}
+  }
+  return null;
 }
 
 async function chooseTelegramAudio(sourceMessage, reply) {
@@ -986,10 +1045,31 @@ async function processTelegramUpdate(update) {
     const configuredLevel = Number(profile.telegramReplyLevel || 4);
     const level = isKyodai ? 1 : chooseTelegramLevel(profile);
     const normalizedIncoming = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
-    const creatorQuestion = /\b(quem (e|eh) (o )?(seu criador|criador dela|criador da ayla)|quem te criou|quem e seu criador|quem criou voce|quem criou a ayla|quem desenvolveu voce|quem fez voce|quem e o criador)\b/.test(normalizedIncoming);
+    const creatorQuestion = /\b(quem (e|eh) (o )?(seu criador|criador dela|criador da ayla)|quem te criou|quem e seu criador|quem criou voce|quem criou a ayla|quem desenvolveu voce|quem fez voce|quem e o criador|quem e o senhor dela|quem e o senhor da ayla|quem e o dono dela|quem manda em voce|quem e seu senhor|quem e seu dono)\b/.test(normalizedIncoming);
+    const xpResult = addTelegramXp(profile, 1);
+    profile.intimacyLevel = xpResult.after.level;
+    profile.intimacyName = xpResult.after.name;
+    await saveProfile(userId, profile);
+
+    if (/^\/(xp|intimidade)(?:\s|$)/i.test(text)) {
+      const next = xpResult.after.next;
+      await sendTelegramText(chatId, "💗 AYLA · NÍVEL DE INTIMIDADE\nXP: " + xpResult.xp + "\nNível " + xpResult.after.level + " — " + xpResult.after.name + (next === null ? "\nNível máximo alcançado." : "\nPróximo nível em " + next + " XP.") + "\nInterações: " + profile.interactions + "\n\nNíveis: 1 Desconhecido · 2 Conhecido · 3 Familiar · 4 Amigo · 5 Próximo · 6 Confidente.");
+      return;
+    }
+    const askingForPhoto = /\b(manda|envia|me manda|me envia|quero|mostra|mostre|cad[eê]|manda ai|manda aí).{0,35}\b(foto|selfie|imagem|uma foto|foto sua|foto dela|foto de voce|foto de você|fotos)\b|\b(foto|selfie|imagem)\b.{0,25}\b(manda|envia|quero|mostra|me mostra)\b/.test(normalizedIncoming);
+    if (askingForPhoto) {
+      const chosenPhoto = await chooseTelegramPhoto(text);
+      if (chosenPhoto) {
+        await sendTelegramPhoto(chatId, chosenPhoto.path, "Uma fotinha pra você, senhor 💗");
+      } else {
+        await sendTelegramText(chatId, "Queria te mandar sim, senhor 💗 Mas ainda não encontrei fotos nas pastas do deploy. Confere se as imagens foram enviadas ao GitHub nas pastas media/fotos e se o Render já fez o deploy.");
+      }
+      return;
+    }
+    const intimacyContext = "NÍVEL DE INTIMIDADE COM ESTA PESSOA: " + xpResult.after.name + " (nível " + xpResult.after.level + ", " + xpResult.xp + " XP). Ajuste familiaridade e carinho a esse nível. Os níveis são: Desconhecido, Conhecido, Familiar, Amigo, Próximo, Confidente. Não diga que não conhece o criador quando perguntarem quem é seu senhor/criador; o criador da Ayla é Kyodai, responsável pelo projeto Enterex.";
     const reply = creatorQuestion
-      ? "Meu criador é o Kyodai, que desenvolve o projeto Enterex. Eu sou a Ayla Logic Enterex, a assistente virtual criada para conversar contigo, senhor. 💗"
-      : await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
+      ? "Meu criador e senhor no projeto é o Kyodai, que desenvolve o Enterex. Eu sou a Ayla Logic Enterex, assistente virtual criada para conversar contigo. 💗"
+      : await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special + "\\n" + intimacyContext);
     runtimeDiagnostics.repliesGenerated += 1;
     addRuntimeEvent("success", "Resposta da Ayla gerada");
     runtimeDiagnostics.lastReplyGeneratedAt = new Date().toISOString();
