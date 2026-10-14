@@ -113,8 +113,6 @@ async function generateAylaReply(message, userId, extraInstructions = "") {
   rememberExplicitFacts(message, profile);
   rememberConversationEvent(profile, { role: "user", text: message, at: Date.now() });
   await saveProfile(userId, profile);
-  // Modo local: IA externa desativada temporariamente para evitar respostas em pane/repetidas.
-  return phraseFallbackAndSave(message, profile, userId);
   const learnedStyle = profileSummary(profile);
   const learnedContext = conversationContext(profile, message);
   if (!API_KEY) return phraseFallbackAndSave(message, profile, userId);
@@ -756,10 +754,6 @@ const server = createServer(async (req, res) => {
     if (!message || message.length > MAX_MESSAGE_CHARS) {
       return send(res, 400, { error: "A mensagem deve ter entre 1 e 4000 caracteres." });
     }
-
-    // Modo local: não chama Gemini nem OpenRouter; usa apenas respostas locais.
-    const localReply = await phraseFallbackAndSave(message, profile, userId);
-    return send(res, 200, { reply: localReply, provider: "local-phrases", model: null, fallback: false, learned: true, memory: profileSummary(profile) });
 
     let reply = "";
     if (!API_KEY) {
