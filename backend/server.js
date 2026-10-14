@@ -527,20 +527,22 @@ function wait(ms) {
 }
 
 async function simulateTelegramTyping(chatId, sourceMessage) {
+  // O Telegram expira a ação "typing" após poucos segundos. Renovamos enquanto
+  // a Ayla prepara a resposta, mas não durante a espera aleatória agendada.
   const total = chooseTelegramTypingDuration(sourceMessage);
-  const interruptions = Math.random() < 0.5 ? 1 + Math.floor(Math.random() * 2) : 0;
-  if (!interruptions) {
-    try { await sendTelegramTyping(chatId); } catch (error) { recordDiagnosticError("telegram.typing", error); }
-    await wait(total);
-    return;
-  }
-  let remaining = total;
-  for (let i = 0; i <= interruptions && remaining > 0; i++) {
-    try { await sendTelegramTyping(chatId); } catch (error) { recordDiagnosticError("telegram.typing", error); }
-    const burst = i === interruptions ? remaining : Math.max(350, Math.min(remaining, Math.floor(remaining / (interruptions - i + 1))));
-    await wait(burst);
-    remaining -= burst;
-    if (i < interruptions && remaining > 0) await wait(700 + Math.floor(Math.random() * 1700));
+  const startedAt = Date.now();
+  let lastSentAt = 0;
+  while (Date.now() - startedAt < total) {
+    if (Date.now() - lastSentAt >= 4000) {
+      try {
+        await sendTelegramTyping(chatId);
+        lastSentAt = Date.now();
+      } catch (error) {
+        recordDiagnosticError("telegram.typing", error);
+      }
+    }
+    const remaining = total - (Date.now() - startedAt);
+    await wait(Math.min(900, Math.max(100, remaining)));
   }
 }
 
