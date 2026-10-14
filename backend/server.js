@@ -1145,8 +1145,13 @@ const server = createServer(async (req, res) => {
     try {
       const p = safeMediaPath(requestUrl.searchParams.get("path"));
       const file = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(MEDIA_BRANCH), {});
-      if (typeof file.content !== "string") return send(res, 502, { error: "O arquivo não veio em formato legível." });
-      const bytes = Buffer.from(file.content.replace(/\n/g, ""), "base64");
+      let encoded = typeof file.content === "string" ? file.content.replace(/\n/g, "") : "";
+      if (!encoded && file.sha) {
+        const blob = await githubMediaApi("/repos/" + MEDIA_REPO + "/git/blobs/" + file.sha);
+        encoded = typeof blob.content === "string" ? blob.content.replace(/\n/g, "") : "";
+      }
+      if (!encoded) return send(res, 502, { error: "O arquivo não veio em formato legível." });
+      const bytes = Buffer.from(encoded, "base64");
       const ext = p.split(".").pop().toLowerCase();
       const mime = ({mp3:"audio/mpeg",wav:"audio/wav",ogg:"audio/ogg",m4a:"audio/mp4",aac:"audio/aac",opus:"audio/ogg",flac:"audio/flac",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",gif:"image/gif",avif:"image/avif",mp4:"video/mp4",webm:"video/webm",mov:"video/quicktime",mkv:"video/x-matroska",avi:"video/x-msvideo"})[ext] || "application/octet-stream";
       res.writeHead(200, { "content-type": mime, "content-length": bytes.length, "cache-control": "private, max-age=60", "x-content-type-options": "nosniff" });
