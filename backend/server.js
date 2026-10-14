@@ -406,7 +406,7 @@ async function chooseTelegramAudio(sourceMessage, reply) {
   if (/^(oi+|ola+|oie+|e ai|eae|opa+|salve|bom dia|boa tarde|boa noite|hey|hi|hello)\b/.test(source)) {
     return choose(/\b(oi+|ola+|oie+|opa+|salve)\b/);
   }
-  if (/(tudo bem|como (tu|voce) ta|como ce ta|como vai)/.test(source)) {
+  if (/(tudo bem|como (tu|voce) ta|como (tu|voce) esta|como ce ta|como ce esta|como vai|como voce se sente)/.test(source)) {
     return choose(/estou bem|tudo bem no que posso ajudar/);
   }
   if (/(nao falou comigo hoje|sentiu minha falta|saudade|sumida|sumido)/.test(source) || /nao falou comigo|nao me responde/.test(answer)) {
@@ -453,6 +453,7 @@ async function sendTelegramAudio(chatId, relativePath) {
   if (bytes) {
     const form = new FormData();
     form.append("chat_id", String(chatId));
+    form.append("reply_markup", JSON.stringify({inline_keyboard:[[{text:"✅ Já ouvi tudo — apagar áudio",callback_data:"ayla:heard:0"}]]}));
     const uploadName = relativePath.split("/").pop();
     form.append("audio", new Blob([bytes], { type: "audio/mpeg" }), /\.[a-z0-9]{2,5}$/i.test(uploadName) ? uploadName : uploadName + ".mp3");
     response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
@@ -470,7 +471,7 @@ async function sendTelegramAudio(chatId, relativePath) {
     response = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendAudio", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, audio: audioUrl }),
+      body: JSON.stringify({ chat_id: chatId, audio: audioUrl, reply_markup:{inline_keyboard:[[{text:"✅ Já ouvi tudo — apagar áudio",callback_data:"ayla:heard:0"}]]} }),
       signal: AbortSignal.timeout(20000)
     });
   }
@@ -484,26 +485,19 @@ async function sendTelegramAudio(chatId, relativePath) {
   const sentMessage = data.result || {};
   const messageId = sentMessage.message_id;
   const durationSeconds = Number(sentMessage.audio?.duration || 0);
-  // A Bot API não oferece evento de reprodução concluída. Usamos a duração
-  // reportada pelo Telegram e removemos a margem extra para apagar no fim estimado.
+  // O Telegram não informa quando a reprodução termina. A exclusão só ocorre
+  // quando Kyodai toca no botão "Já ouvi tudo — apagar áudio".
   if (messageId) {
-    const deleteAfterMs = Math.max(1000, durationSeconds * 1000);
-    setTimeout(async () => {
-      try {
-        const deleteResponse = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
-          signal: AbortSignal.timeout(8000)
-        });
-        const deleteData = await deleteResponse.json().catch(() => ({}));
-        if (!deleteResponse.ok || deleteData.ok !== true) {
-          console.warn("Não foi possível apagar o áudio automaticamente:", deleteData.description || deleteResponse.status);
-        }
-      } catch (error) {
-        recordDiagnosticError("telegram.audio_auto_delete", error);
-      }
-    }, deleteAfterMs);
+    // Troca o callback temporário pelo ID real da mensagem enviada.
+    // editMessageReplyMarkup permite ligar o botão à mensagem certa.
+    fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/editMessageReplyMarkup", {
+      method: "POST", headers: {"content-type":"application/json"},
+      body: JSON.stringify({chat_id:chatId,message_id:messageId,reply_markup:{inline_keyboard:[[{text:"✅ Já ouvi tudo — apagar áudio",callback_data:"ayla:heard:"+messageId}]]}}),
+      signal: AbortSignal.timeout(8000)
+    }).then(async response => {
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok !== true) console.warn("Não foi possível atualizar o botão de exclusão do áudio:", result.description || response.status);
+    }).catch(error => recordDiagnosticError("telegram.audio_button", error));
   }
   return { messageId, durationSeconds };
 }
@@ -750,6 +744,26 @@ async function answerTelegramCallback(q) {
   const id = String(q.from.id);
   const chatId = q.message?.chat?.id;
   const key = String(q.data || "");
+  if (key.startsWith("ayla:heard:")) {
+    const messageId = Number(key.slice("ayla:heard:".length));
+    if (!Number.isInteger(messageId) || !chatId || String(q.from.id) !== KYODAI_TELEGRAM_USER_ID) {
+      await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+        method: "POST", headers: {"content-type":"application/json"},
+        body: JSON.stringify({callback_query_id:q.id,text:"Esse botão só pode ser usado pelo criador.",show_alert:true})
+      }).catch(()=>{});
+      return;
+    }
+    const result = await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/deleteMessage", {
+      method: "POST", headers: {"content-type":"application/json"},
+      body: JSON.stringify({chat_id:chatId,message_id:messageId}),
+      signal: AbortSignal.timeout(8000)
+    }).then(response => response.json()).catch(() => ({ok:false}));
+    await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
+      method: "POST", headers: {"content-type":"application/json"},
+      body: JSON.stringify({callback_query_id:q.id,text:result.ok ? "Áudio apagado. 💗" : "Não consegui apagar o áudio; confira as permissões."})
+    }).catch(()=>{});
+    return;
+  }
   if (key.startsWith("failover:")) {
     if (id !== KYODAI_TELEGRAM_USER_ID) {
       await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({callback_query_id:q.id,text:"Só o criador pode autorizar a troca.",show_alert:true}) }).catch(()=>{});
@@ -986,7 +1000,11 @@ async function processTelegramUpdate(update) {
 
     const configuredLevel = Number(profile.telegramReplyLevel || 4);
     const level = isKyodai ? 1 : chooseTelegramLevel(profile);
-    const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
+    const normalizedIncoming = text.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLocaleLowerCase("pt-BR");
+    const creatorQuestion = /\\b(quem (e|eh) (o )?seu criador|quem te criou|quem e seu criador|quem criou voce|quem criou a ayla|quem desenvolveu voce|quem fez voce|quem e o criador)\\b/.test(normalizedIncoming);
+    const reply = creatorQuestion
+      ? "Meu criador é o Kyodai, que desenvolve o projeto Enterex. Eu sou a Ayla Logic Enterex, a assistente virtual criada para conversar contigo, senhor. 💗"
+      : await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
     runtimeDiagnostics.repliesGenerated += 1;
     addRuntimeEvent("success", "Resposta da Ayla gerada");
     runtimeDiagnostics.lastReplyGeneratedAt = new Date().toISOString();
