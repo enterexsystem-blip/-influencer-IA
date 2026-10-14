@@ -433,7 +433,7 @@ async function processTelegramUpdate(update) {
       await sendTelegramText(chatId, "Esse comando de configuração é exclusivo do criador da Ayla.");
       return;
     }
-    const option = text.split(/\\s+/)[1]?.toLocaleLowerCase("pt-BR") || "status";
+    const option = text.split(/\s+/)[1]?.toLocaleLowerCase("pt-BR") || "status";
     const creatorProfile = await loadProfile("telegram:" + KYODAI_TELEGRAM_USER_ID);
     if (option === "on" || option === "ativar") {
       creatorProfile.proactiveGreetingEnabled = true;
@@ -487,7 +487,7 @@ async function processTelegramUpdate(update) {
 
     // Se o criador ativou a função, cumprimentos comuns também agendam uma mensagem espontânea entre 12 e 24 horas.
     const greeting = text.toLocaleLowerCase("pt-BR")
-      .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[!?.,…]+/g, "").trim();
     const isGreeting = /^(oi+|ola+|oie+|eai+|e ae|eae|opa+|salve|bom dia|boa tarde|boa noite|hey+|hi+|hello+|fala+|fala tu|tudo bem)$/.test(greeting);
     if (isGreeting && !isKyodai) {
