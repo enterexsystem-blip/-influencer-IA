@@ -36,6 +36,46 @@ const META_GRAPH_API_VERSION = (process.env.META_GRAPH_API_VERSION || "v26.0").t
 const seenInstagramMessageIds = new Map();
 const instagramLastReply = new Map();
 const requests = new Map();
+const startedAt = Date.now();
+const runtimeDiagnostics = {
+  updatesReceived: 0,
+  messagesReceived: 0,
+  repliesGenerated: 0,
+  repliesSent: 0,
+  audioSent: 0,
+  textFallbacks: 0,
+  lastUpdateId: null,
+  lastWebhookAt: null,
+  lastMessageAt: null,
+  lastReplyGeneratedAt: null,
+  lastReplySentAt: null,
+  lastError: null,
+  recentErrors: []
+};
+
+function recordDiagnosticError(phase, error, details = {}) {
+  const message = String(error?.message || error || "erro desconhecido").replace(/bot\d+:[A-Za-z0-9_-]+/g, "[token oculto]").slice(0, 400);
+  const item = { at: new Date().toISOString(), phase, message, ...details };
+  runtimeDiagnostics.lastError = item;
+  runtimeDiagnostics.recentErrors.push(item);
+  if (runtimeDiagnostics.recentErrors.length > 20) runtimeDiagnostics.recentErrors.shift();
+  return item;
+}
+
+async function getAudioInventory() {
+  const folder = join(AUDIO_DIR, "01-cumprimentos");
+  try {
+    const entries = await readdir(folder, { withFileTypes: true });
+    const files = entries.filter(entry => entry.isFile() && !/\.(zip|json|md|txt)$/i.test(entry.name));
+    return {
+      directoryExists: true,
+      audioFiles: files.length,
+      examples: files.slice(0, 5).map(entry => entry.name)
+    };
+  } catch (error) {
+    return { directoryExists: false, audioFiles: 0, examples: [], error: String(error?.code || error?.message || "erro").slice(0, 100) };
+  }
+}
 
 const persona = [
   "Você é Ayla, uma influencer/personagem fictícia adulta que mora em São Paulo.",
@@ -392,57 +432,77 @@ const localScheduledTelegramReplies = new Map();
 
 async function deliverScheduledTelegramReply(job) {
   const chatId = job.chat_id ?? job.chatId;
+  const jobKey = String(job.id ?? job.localId);
   try {
     const remaining = Number(job.due_at ? new Date(job.due_at).getTime() - Date.now() : 0);
     if (remaining > 0) {
       const timer = setTimeout(() => deliverScheduledTelegramReply(job), remaining);
-      scheduledTelegramTimers.set(String(job.id ?? job.localId), timer);
+      scheduledTelegramTimers.set(jobKey, timer);
       return;
     }
     const sourceMessage = job.source_message ?? job.sourceMessage ?? "";
-    const replyText = String(job.reply || "");
-    const isAudioReply = replyText.startsWith("__AYLA_AUDIO__");
-    const audioPath = isAudioReply
-      ? await chooseTelegramAudio(sourceMessage, replyText.slice("__AYLA_AUDIO__".length))
-      : null;
+    const storedReply = String(job.reply || "");
+    const isBothReply = storedReply.startsWith("__AYLA_BOTH__");
+    const isAudioReply = storedReply.startsWith("__AYLA_AUDIO__") || isBothReply;
+    const replyText = isBothReply
+      ? storedReply.slice("__AYLA_BOTH__".length)
+      : storedReply.startsWith("__AYLA_AUDIO__")
+        ? storedReply.slice("__AYLA_AUDIO__".length)
+        : storedReply;
 
-    // Não mostrar "digitando..." se já sabemos que não há gravação compatível.
     if (isAudioReply) {
-      if (!audioPath) {
-        console.log("Ayla não enviou áudio: não há gravação catalogada para esta mensagem.");
-      } else {
-        let audioAvailable = false;
+      const audioPath = await chooseTelegramAudio(sourceMessage, replyText);
+      let audioAvailable = false;
+      if (audioPath) {
         try {
           await readFile(join(AUDIO_DIR, audioPath));
           audioAvailable = true;
         } catch {
-          console.log("Ayla não enviou áudio: arquivo MP3 ausente no deploy:", audioPath);
+          console.error("Áudio compatível foi identificado, mas o arquivo não está acessível:", audioPath);
+          recordDiagnosticError("telegram.audio_file_missing", new Error("Arquivo de áudio não acessível"), { audioPath });
         }
-        if (audioAvailable) {
-          await simulateTelegramTyping(chatId, sourceMessage);
-          const sent = await sendTelegramAudio(chatId, audioPath);
-          if (!sent) console.log("Ayla não enviou áudio: não foi possível ler o MP3:", audioPath);
-          else console.log("Áudio original da Ayla enviado:", audioPath);
+      }
+      if (isBothReply || !audioAvailable) {
+        await simulateTelegramTyping(chatId, sourceMessage);
+        await sendTelegramText(chatId, replyText);
+        runtimeDiagnostics.repliesSent += 1;
+        runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
+        if (!audioAvailable) {
+          runtimeDiagnostics.textFallbacks += 1;
+          console.warn("Ayla enviou texto como alternativa: não há áudio compatível com esta mensagem.");
         }
+      }
+      if (audioAvailable) {
+        await simulateTelegramTyping(chatId, sourceMessage);
+        await sendTelegramAudio(chatId, audioPath);
+        runtimeDiagnostics.audioSent += 1;
+        runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
+        console.log("Áudio original da Ayla enviado:", audioPath);
       }
     } else {
       await simulateTelegramTyping(chatId, sourceMessage);
       await sendTelegramText(chatId, replyText);
+      runtimeDiagnostics.repliesSent += 1;
+      runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
       console.log("Resposta em texto da Ayla enviada.");
     }
     if (dbReady && job.id) await pool.query("DELETE FROM telegram_pending_replies WHERE id = $1", [job.id]);
     if (job.localId) localScheduledTelegramReplies.delete(job.localId);
-    scheduledTelegramTimers.delete(String(job.id ?? job.localId));
+    scheduledTelegramTimers.delete(jobKey);
   } catch (error) {
-    console.error("Falha ao enviar resposta agendada da Ayla:", error?.message || "erro");
+    recordDiagnosticError("telegram.deliver_reply", error, { chatId: String(chatId) });
+    telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
+    console.error("Falha ao enviar resposta agendada da Ayla:", telegramLastReplyError);
   }
 }
-
 async function scheduleTelegramReply(chatId, reply, sourceMessage, delayMs, responseMode = "texto") {
   const dueAt = new Date(Date.now() + delayMs);
-  // Em "ambos", sorteia 50/50. Se cair em áudio sem gravação compatível, não envia texto como substituto.
-  const useAudio = responseMode === "audio" || (responseMode === "ambos" && Math.random() < 0.5);
-  const storedReply = useAudio ? "__AYLA_AUDIO__" + String(reply || "") : String(reply || "");
+  // Em "ambos", manda sempre o texto e acrescenta um áudio compatível quando houver gravação.
+  const storedReply = responseMode === "ambos"
+    ? "__AYLA_BOTH__" + String(reply || "")
+    : responseMode === "audio"
+      ? "__AYLA_AUDIO__" + String(reply || "")
+      : String(reply || "");
   let job;
   if (dbReady) {
     const result = await pool.query(
@@ -458,7 +518,6 @@ async function scheduleTelegramReply(chatId, reply, sourceMessage, delayMs, resp
   const timer = setTimeout(() => deliverScheduledTelegramReply(job), delayMs);
   scheduledTelegramTimers.set(String(job.id ?? job.localId), timer);
 }
-
 async function recoverScheduledTelegramReplies() {
   if (!dbReady) return;
   const result = await pool.query("SELECT id, chat_id, reply, source_message, due_at FROM telegram_pending_replies ORDER BY due_at ASC");
@@ -521,6 +580,10 @@ async function processTelegramUpdate(update) {
   const senderId = String(message?.from?.id || "");
   const chatId = message?.chat?.id;
   const text = typeof message?.text === "string" ? message.text.trim() : "";
+  if (message) {
+    runtimeDiagnostics.messagesReceived += 1;
+    runtimeDiagnostics.lastMessageAt = new Date().toISOString();
+  }
   if (!senderId || chatId === undefined || !text || message?.from?.is_bot) return;
   const userId = "telegram:" + senderId;
   const isKyodai = Boolean(KYODAI_TELEGRAM_USER_ID && senderId === KYODAI_TELEGRAM_USER_ID);
@@ -634,6 +697,8 @@ async function processTelegramUpdate(update) {
     const configuredLevel = Number(profile.telegramReplyLevel || 4);
     const level = isKyodai ? 1 : chooseTelegramLevel(profile);
     const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
+    runtimeDiagnostics.repliesGenerated += 1;
+    runtimeDiagnostics.lastReplyGeneratedAt = new Date().toISOString();
     if (level === 3) {
       console.log("Ayla escolheu não responder a esta mensagem (nível 3).");
       return;
@@ -644,8 +709,11 @@ async function processTelegramUpdate(update) {
     console.log("Resposta da Ayla agendada; nível:", configuredLevel, "comportamento:", level, "atraso_ms:", delay);
   } catch (error) {
     telegramLastReplyError = String(error?.message || "erro desconhecido").slice(0, 300);
-    console.error("Falha ao gerar resposta da Ayla no Telegram:", telegramLastReplyError);
-    console.error("Ayla manteve silêncio: erro ao preparar resposta em áudio.");
+    recordDiagnosticError("telegram.generate_or_schedule", error, { userId: String(senderId) });
+    console.error("Falha ao gerar/agendar resposta da Ayla no Telegram:", telegramLastReplyError);
+    try { await sendTelegramText(chatId, "Tive um erro interno ao preparar minha resposta. O diagnóstico foi registrado; tenta de novo em alguns instantes."); } catch (sendError) {
+      recordDiagnosticError("telegram.error_notice", sendError);
+    }
   }
 }
 const server = createServer(async (req, res) => {
@@ -664,7 +732,13 @@ const server = createServer(async (req, res) => {
       if (seenTelegramUpdateIds.size > 5000) { const oldest = seenTelegramUpdateIds.keys().next().value; if (oldest !== undefined) seenTelegramUpdateIds.delete(oldest); }
       console.log("Atualização do Telegram recebida:", updateId, "temMensagem:", Boolean(update?.message));
       send(res, 200, { received: true });
-      setImmediate(() => processTelegramUpdate(update).catch(error => console.error("Falha no atendimento Telegram:", error?.message || "erro")));
+      runtimeDiagnostics.updatesReceived += 1;
+      runtimeDiagnostics.lastWebhookAt = new Date().toISOString();
+      runtimeDiagnostics.lastUpdateId = updateId;
+      setImmediate(() => processTelegramUpdate(update).catch(error => {
+        recordDiagnosticError("telegram.process_update", error);
+        console.error("Falha no atendimento Telegram:", error?.message || "erro");
+      }));
       return;
     } catch (error) { return send(res, error?.status || 400, { error: error?.message || "Webhook do Telegram inválido." }); }
   }
