@@ -20,6 +20,12 @@ services:
         value: gemini-2.5-flash-lite
       - key: GEMINI_API_KEY
         sync: false
+      - key: FISH_AUDIO_API_KEY
+        sync: false
+      - key: FISH_AUDIO_REFERENCE_ID
+        sync: false
+      - key: FISH_AUDIO_MODEL
+        value: s2.1-pro
       - key: INSTAGRAM_ACCOUNT_ID
         sync: false
       - key: INSTAGRAM_ACCESS_TOKEN
