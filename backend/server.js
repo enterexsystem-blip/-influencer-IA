@@ -1069,7 +1069,7 @@ async function processTelegramUpdate(update) {
     const intimacyContext = "NÍVEL DE INTIMIDADE COM ESTA PESSOA: " + xpResult.after.name + " (nível " + xpResult.after.level + ", " + xpResult.xp + " XP). Ajuste familiaridade e carinho a esse nível. Os níveis são: Desconhecido, Conhecido, Familiar, Amigo, Próximo, Confidente. Não diga que não conhece o criador quando perguntarem quem é seu senhor/criador; o criador da Ayla é Kyodai, responsável pelo projeto Enterex.";
     const reply = creatorQuestion
       ? "Meu criador e senhor no projeto é o Kyodai, que desenvolve o Enterex. Eu sou a Ayla Logic Enterex, assistente virtual criada para conversar contigo. 💗"
-      : await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special + "\\n" + intimacyContext);
+      : await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special + "\n" + intimacyContext);
     runtimeDiagnostics.repliesGenerated += 1;
     addRuntimeEvent("success", "Resposta da Ayla gerada");
     runtimeDiagnostics.lastReplyGeneratedAt = new Date().toISOString();
