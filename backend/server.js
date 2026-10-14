@@ -88,6 +88,33 @@ async function notifyCreatorDiagnostic(item) {
   return false;
 }
 
+async function getMediaCatalog() {
+  const root = join(BACKEND_DIR, "..", "media");
+  const allowed = new Set([".mp3", ".wav", ".ogg", ".m4a", ".aac", ".opus", ".flac", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".mp4", ".webm", ".mov", ".mkv", ".avi"]);
+  const files = [];
+  async function walk(dir, relative = "") {
+    if (files.length >= 1000) return;
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (files.length >= 1000) break;
+      if (entry.name.startsWith(".")) continue;
+      const childRelative = relative ? relative + "/" + entry.name : entry.name;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) await walk(full, childRelative);
+      else if (entry.isFile()) {
+        const dot = entry.name.lastIndexOf(".");
+        const ext = dot >= 0 ? entry.name.slice(dot).toLowerCase() : "";
+        if (!allowed.has(ext)) continue;
+        const type = [".mp3", ".wav", ".ogg", ".m4a", ".aac", ".opus", ".flac"].includes(ext) ? "audio" : [".mp4", ".webm", ".mov", ".mkv", ".avi"].includes(ext) ? "video" : "image";
+        files.push({ path: "media/" + childRelative, name: entry.name, type, isNew: false });
+      }
+    }
+  }
+  await walk(root);
+  return { files, truncated: files.length >= 1000 };
+}
+
 async function getAudioInventory() {
   const folder = join(AUDIO_DIR, "01-cumprimentos");
   try {
@@ -1025,9 +1052,8 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && requestUrl.pathname === "/media/catalog") {
     try {
-      const audio = await getAudioInventory();
-      const files = (audio.examples || []).map(path => ({ path: String(path), name: String(path).split("/").pop(), type: "audio", isNew: false }));
-      return send(res, 200, { ok: true, files, totalAudio: audio.audioFiles || files.length, note: "Este catálogo expõe apenas exemplos retornados pelo inventário de áudio. Upload, renomear e mover ainda não estão habilitados." });
+      const catalog = await getMediaCatalog();
+      return send(res, 200, { ok: true, files: catalog.files, truncated: catalog.truncated, total: catalog.files.length, note: "Inventário de leitura do diretório media do deploy. Upload, renomear e mover ainda não estão habilitados." });
     } catch (error) {
       recordDiagnosticError("media_studio.catalog", error);
       return send(res, 500, { error: "Não foi possível listar o inventário de mídia." });
