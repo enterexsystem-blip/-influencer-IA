@@ -30,6 +30,12 @@ services:
         sync: false
       - key: META_GRAPH_API_VERSION
         value: v26.0
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: KYODAI_TELEGRAM_USER_ID
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: influencer-ia-memory
