@@ -115,7 +115,7 @@ async function generateAylaReply(message, userId, extraInstructions = "") {
   if (PROVIDER === "openrouter") {
     upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Ayla — Influencer IA" },
+      headers: { "content-type": "application/json", "authorization": `Bearer ${API_KEY}`, "http-referer": "https://github.com/enterexsystem-blip/-influencer-IA", "x-title": "Ayla - Influencer IA" },
       body: JSON.stringify({ model: MODEL, messages: [
         { role: "system", content: `${persona}\n\n${extraInstructions}\n\nESTILO APRENDIDO:\n${learnedStyle}\n\nMEMÓRIA E CONTEXTO:\n${learnedContext}\n\nResponda considerando o histórico e os fatos salvos. Não invente lembranças nem repita respostas genéricas se o contexto permitir algo específico.` },
         { role: "user", content: message }
