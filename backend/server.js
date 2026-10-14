@@ -24,7 +24,7 @@ const localProfiles = new Map();
 let pool = null;
 let dbReady = false;
 const slangDictionary = {mn:"mano",slk:"se loko",tlgd:"tá ligado",pprt:"papo reto",blz:"beleza",suave:"tranquilo","mó":"muito",vish:"surpresa",eae:"e aí",eai:"e aí",tmj:"tamo junto",mds:"meu Deus",nss:"nossa",tbm:"também",vc:"você",pq:"por que/porque",kkk:"risada",kkkk:"risada",kkkkk:"risada",amg:"amigo/amiga",sdd:"saudade",paia:"ruim/desagradável",aff:"irritação",parça:"parceiro",mano:"mano","véi":"velho",vei:"velho","cê":"você"};
-const MAX_BODY_BYTES = 16_000;
+const MAX_BODY_BYTES = 12_000_000;
 const MAX_MESSAGE_CHARS = 4_000;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
@@ -86,6 +86,79 @@ function recordDiagnosticError(phase, error, details = {}) {
 async function notifyCreatorDiagnostic(item) {
   // Erros técnicos ficam na Central de Diagnóstico; não enviar mensagens separadas no Telegram.
   return false;
+}
+
+
+
+// Ayla Media Studio: armazenamento durável no repositório GitHub.
+// Configure MEDIA_STUDIO_USER, MEDIA_STUDIO_PASSWORD e GITHUB_TOKEN nas variáveis do Render.
+const MEDIA_REPO = (process.env.GITHUB_REPOSITORY || "enterexsystem-blip/-influencer-IA").trim();
+const MEDIA_BRANCH = (process.env.GITHUB_BRANCH || "main").trim();
+const MEDIA_USER = process.env.MEDIA_STUDIO_USER || "";
+const MEDIA_PASSWORD = process.env.MEDIA_STUDIO_PASSWORD || "";
+function mediaAuth(req, res) {
+  if (!MEDIA_USER || !MEDIA_PASSWORD) {
+    res.writeHead(503, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+    res.end("A biblioteca está protegida. Configure MEDIA_STUDIO_USER e MEDIA_STUDIO_PASSWORD nas variáveis do Render.");
+    return false;
+  }
+  const header = req.headers.authorization || "";
+  const expected = "Basic " + Buffer.from(MEDIA_USER + ":" + MEDIA_PASSWORD).toString("base64");
+  const a = Buffer.from(header), b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    res.writeHead(401, { "www-authenticate": 'Basic realm="Ayla Media Studio", charset="UTF-8"', "cache-control": "no-store" });
+    res.end("Autenticação necessária.");
+    return false;
+  }
+  return true;
+}
+function safeMediaPath(input) {
+  const p = String(input || "").replace(/^\/+/, "").replace(/\\/g, "/");
+  if (!p.startsWith("media/") || p.split("/").some(part => !part || part === "." || part === "..") || /[\u0000-\u001f]/.test(p)) {
+    throw Object.assign(new Error("Caminho de mídia inválido."), { status: 400 });
+  }
+  if (!/\.(mp3|wav|ogg|m4a|aac|opus|flac|png|jpe?g|webp|gif|avif|mp4|webm|mov|mkv|avi)$/i.test(p)) {
+    throw Object.assign(new Error("Tipo de arquivo não permitido."), { status: 415 });
+  }
+  return p;
+}
+async function githubMediaApi(path, options = {}) {
+  const token = process.env.GITHUB_TOKEN || "";
+  if (!token) throw Object.assign(new Error("Falta configurar GITHUB_TOKEN nas variáveis do Render."), { status: 503 });
+  const response = await fetch("https://api.github.com" + path, {
+    ...options,
+    headers: { "accept": "application/vnd.github+json", "authorization": "Bearer " + token, "x-github-api-version": "2022-11-28", ...(options.headers || {}) },
+    signal: AbortSignal.timeout(25000)
+  });
+  const raw = await response.text();
+  let data = {}; try { data = raw ? JSON.parse(raw) : {}; } catch {}
+  if (!response.ok) {
+    const status = response.status === 404 ? 404 : response.status === 409 ? 409 : 502;
+    throw Object.assign(new Error(data.message || "GitHub Storage respondeu HTTP " + response.status), { status });
+  }
+  return data;
+}
+async function githubMediaCatalog() {
+  const tree = await githubMediaApi("/repos/" + MEDIA_REPO + "/git/trees/" + encodeURIComponent(MEDIA_BRANCH) + "?recursive=1");
+  const files = (tree.tree || []).filter(x => x.type === "blob" && x.path.startsWith("media/") && !x.path.endsWith("/.gitkeep") && /\.(mp3|wav|ogg|m4a|aac|opus|flac|png|jpe?g|webp|gif|avif|mp4|webm|mov|mkv|avi)$/i.test(x.path)).map(x => {
+    const name = x.path.split("/").pop(), ext = name.split(".").pop().toLowerCase();
+    const type = ["mp3","wav","ogg","m4a","aac","opus","flac"].includes(ext) ? "audio" : ["mp4","webm","mov","mkv","avi"].includes(ext) ? "video" : "image";
+    return { path: x.path, name, type, isNew: false, size: x.size || 0 };
+  });
+  return { files, truncated: Boolean(tree.truncated) };
+}
+async function githubWriteFile(path, contentBase64, message) {
+  const p = safeMediaPath(path);
+  const current = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/"), { method: "GET" }).catch(e => e.status === 404 ? null : Promise.reject(e));
+  const payload = { message, content: contentBase64, branch: MEDIA_BRANCH };
+  if (current?.sha) payload.sha = current.sha;
+  await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/"), { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  return p;
+}
+async function githubDeleteFile(path) {
+  const p = safeMediaPath(path);
+  const current = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/"));
+  await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/"), { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "Remove mídia " + p, sha: current.sha, branch: MEDIA_BRANCH }) });
 }
 
 async function getMediaCatalog() {
@@ -1039,6 +1112,10 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (requestUrl.pathname === "/media-studio" || requestUrl.pathname.startsWith("/media/")) {
+    if (!mediaAuth(req, res)) return;
+  }
+
   if (req.method === "GET" && requestUrl.pathname === "/media-studio") {
     try {
       const html = await readFile(join(BACKEND_DIR, "media-studio.html"), "utf8");
@@ -1050,14 +1127,63 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (requestUrl.pathname.startsWith("/media/") && requestUrl.pathname !== "/media/catalog" && requestUrl.pathname !== "/media/file") {
+    return send(res, 404, { error: "Rota de mídia não encontrada." });
+  }
+
   if (req.method === "GET" && requestUrl.pathname === "/media/catalog") {
     try {
-      const catalog = await getMediaCatalog();
-      return send(res, 200, { ok: true, files: catalog.files, truncated: catalog.truncated, total: catalog.files.length, note: "Inventário de leitura do diretório media do deploy. Upload, renomear e mover ainda não estão habilitados." });
+      const catalog = await githubMediaCatalog();
+      return send(res, 200, { ok: true, files: catalog.files, truncated: catalog.truncated, total: catalog.files.length, storage: "github" });
     } catch (error) {
       recordDiagnosticError("media_studio.catalog", error);
-      return send(res, 500, { error: "Não foi possível listar o inventário de mídia." });
+      return send(res, error.status || 502, { error: error.message || "Não foi possível listar o inventário." });
     }
+  }
+
+  if (req.method === "GET" && requestUrl.pathname === "/media/file") {
+    try {
+      const p = safeMediaPath(requestUrl.searchParams.get("path"));
+      const file = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + p.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(MEDIA_BRANCH), { headers: { "accept": "application/vnd.github.raw+json" } });
+      if (typeof file.content !== "string") return send(res, 502, { error: "O arquivo não veio em formato legível." });
+      const bytes = Buffer.from(file.content.replace(/\n/g, ""), "base64");
+      const ext = p.split(".").pop().toLowerCase();
+      const mime = ({mp3:"audio/mpeg",wav:"audio/wav",ogg:"audio/ogg",m4a:"audio/mp4",aac:"audio/aac",opus:"audio/ogg",flac:"audio/flac",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",gif:"image/gif",avif:"image/avif",mp4:"video/mp4",webm:"video/webm",mov:"video/quicktime",mkv:"video/x-matroska",avi:"video/x-msvideo"})[ext] || "application/octet-stream";
+      res.writeHead(200, { "content-type": mime, "content-length": bytes.length, "cache-control": "private, max-age=60", "x-content-type-options": "nosniff" });
+      return res.end(bytes);
+    } catch (error) { return send(res, error.status || 502, { error: error.message || "Falha ao carregar mídia." }); }
+  }
+
+  if (req.method === "POST" && requestUrl.pathname === "/media/upload") {
+    try {
+      const body = await readJson(req);
+      const p = safeMediaPath(body.path);
+      if (typeof body.contentBase64 !== "string" || !body.contentBase64 || body.contentBase64.length > 12_000_000) return send(res, 413, { error: "Arquivo vazio ou maior que o limite de 8 MB." });
+      const content = body.contentBase64.replace(/^data:[^;]+;base64,/, "");
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(content)) return send(res, 400, { error: "Conteúdo base64 inválido." });
+      const saved = await githubWriteFile(p, content, "Adiciona mídia " + p);
+      return send(res, 200, { ok: true, path: saved });
+    } catch (error) { return send(res, error.status || 502, { error: error.message || "Falha ao enviar arquivo." }); }
+  }
+
+  if (req.method === "POST" && requestUrl.pathname === "/media/rename") {
+    try {
+      const body = await readJson(req), oldPath = safeMediaPath(body.path), newPath = safeMediaPath(body.newPath);
+      if (oldPath === newPath) return send(res, 400, { error: "O novo caminho é igual ao atual." });
+      const source = await githubMediaApi("/repos/" + MEDIA_REPO + "/contents/" + oldPath.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(MEDIA_BRANCH));
+      const bytes = Buffer.from(String(source.content || "").replace(/\n/g, ""), "base64");
+      await githubWriteFile(newPath, bytes.toString("base64"), "Renomeia/move mídia para " + newPath);
+      await githubDeleteFile(oldPath);
+      return send(res, 200, { ok: true, path: newPath });
+    } catch (error) { return send(res, error.status || 502, { error: error.message || "Falha ao renomear/mover arquivo." }); }
+  }
+
+  if (req.method === "POST" && requestUrl.pathname === "/media/delete") {
+    try {
+      const body = await readJson(req), p = safeMediaPath(body.path);
+      await githubDeleteFile(p);
+      return send(res, 200, { ok: true, path: p });
+    } catch (error) { return send(res, error.status || 502, { error: error.message || "Falha ao excluir arquivo." }); }
   }
 
   if (req.method === "GET" && requestUrl.pathname === "/central") {
