@@ -302,7 +302,7 @@ function chooseTelegramDelay(message, level) {
 
 function chooseTelegramTypingDuration(message) {
   const text = String(message || "").trim();
-  const words = text.split(/\\s+/).filter(Boolean).length;
+  const words = text.split(/\s+/).filter(Boolean).length;
   const chars = text.length;
   return Math.max(1200, Math.min(12000, 900 + words * 260 + chars * 24 + Math.floor(Math.random() * 1400)));
 }
@@ -471,7 +471,7 @@ async function processTelegramUpdate(update) {
     return;
   }
   if (text === "/menu" || text === "/ajuda" || text === "/help") {
-    await sendTelegramText(chatId, "💗 AYLA · CENTRAL DE CONTROLE\\n\\nEscolhe uma opção abaixo. Conversas: somente áudio. Se não houver gravação compatível, ela fica em silêncio.", aylaMenuKeyboard());
+    await sendTelegramText(chatId, "💗 AYLA · CENTRAL DE CONTROLE\n\nEscolhe uma opção abaixo. Conversas: somente áudio. Se não houver gravação compatível, ela fica em silêncio.", aylaMenuKeyboard());
     return;
   }
   if (text === "/status") {
