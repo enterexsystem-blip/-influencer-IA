@@ -722,6 +722,7 @@ async function processTelegramUpdate(update) {
   const text = typeof message?.text === "string" ? message.text.trim() : "";
   if (message) {
     runtimeDiagnostics.messagesReceived += 1;
+    addRuntimeEvent("info", "Mensagem recebida pelo Telegram");
     runtimeDiagnostics.lastMessageAt = new Date().toISOString();
   }
   if (!senderId || chatId === undefined || !text || message?.from?.is_bot) return;
@@ -862,6 +863,7 @@ async function processTelegramUpdate(update) {
     const level = isKyodai ? 1 : chooseTelegramLevel(profile);
     const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
     runtimeDiagnostics.repliesGenerated += 1;
+    addRuntimeEvent("success", "Resposta da Ayla gerada");
     runtimeDiagnostics.lastReplyGeneratedAt = new Date().toISOString();
     if (level === 3) {
       console.log("Ayla escolheu não responder a esta mensagem (nível 3).");
