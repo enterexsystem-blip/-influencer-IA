@@ -408,6 +408,7 @@ function normalizeMediaText(value) {
 function telegramMediaCategory(title, caption = "") {
   const t = normalizeMediaText(String(title || "") + " " + String(caption || ""));
   if (/(18\+|adult|vip|intim|privad|sensual|adulto|adultos)/.test(t)) return "adultos";
+  if (/(login|adm|autenticacao|autenticacao)/.test(t)) return "login";
   if (/(cumprimento|saudacao|saudacoes|oi\b|ola\b|hello|bom dia|boa tarde|boa noite)/.test(t)) return "cumprimentos";
   if (/(risada|rindo|kkkk|haha|gargalh)/.test(t)) return "risadas";
   if (/(carinh|fofa|fofo|amor|saudade|beijo|boa noite|dormir)/.test(t)) return "carinho";
@@ -1077,6 +1078,27 @@ async function processTelegramUpdate(update) {
   const userId = "telegram:" + senderId;
   const isKyodai = Boolean(KYODAI_TELEGRAM_USER_ID && senderId === KYODAI_TELEGRAM_USER_ID);
   if (text === "/id") { await sendTelegramText(chatId, "Seu ID numérico do Telegram é: " + senderId + "\nGuarde esse número e cadastre no Render em KYODAI_TELEGRAM_USER_ID. Não é um token secreto."); return; }
+  if (text === "/biblioteca" || text.startsWith("/biblioteca@")) {
+    if (!isKyodai) {
+      await sendTelegramText(chatId, "O resumo da biblioteca é exclusivo do criador da Ayla.");
+      return;
+    }
+    const items = await getTelegramMedia("geral", []);
+    if (!items.length) {
+      await sendTelegramText(chatId, "📚 A biblioteca ainda está vazia. Depois do deploy, publica uma mídia nova em cada canal; vou registrar automaticamente as próximas publicações.");
+      return;
+    }
+    const byCategory = {};
+    const byChannel = {};
+    for (const item of items) {
+      byCategory[item.category] = (byCategory[item.category] || 0) + 1;
+      byChannel[item.chatTitle] = (byChannel[item.chatTitle] || 0) + 1;
+    }
+    const categoryText = Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([name,count]) => "• " + name + ": " + count).join("\n");
+    const channelText = Object.entries(byChannel).sort((a,b) => b[1]-a[1]).slice(0,15).map(([name,count]) => "• " + name + ": " + count).join("\n");
+    await sendTelegramText(chatId, "📚 BIBLIOTECA DA AYLA\nItens registrados: " + items.length + "\nBanco: " + (dbReady ? "persistente" : "temporário até reiniciar") + "\n\nCategorias:\n" + categoryText + "\n\nCanais:\n" + channelText);
+    return;
+  }
   if (text === "/audio" || text === "/teste_audio") {
     if (!isKyodai) {
       await sendTelegramText(chatId, "Esse teste de áudio é exclusivo do criador da Ayla.");
@@ -1127,18 +1149,14 @@ async function processTelegramUpdate(update) {
       await sendTelegramText(chatId, "🔒 Acesso administrativo restrito. Só o criador autorizado pode iniciar esse login.");
       return;
     }
-    let loginPhoto = null;
-    try {
-      const entries = await readdir(join(PHOTO_DIR, "login"), { withFileTypes: true });
-      const files = entries.filter(entry => entry.isFile() && /\\.(jpe?g|png|webp)$/i.test(entry.name));
-      if (files.length) loginPhoto = "login/" + files[Math.floor(Math.random() * files.length)].name;
-    } catch {}
+    const loginPhotos = await getTelegramMedia("login", ["photo"]);
     const keyboard = { inline_keyboard: [[{ text: "🔐 ENTRAR COMO ADM", callback_data: "admin:login" }]] };
-    const caption = "ENTEREX · ÁREA ADMINISTRATIVA\\n\\nConfirme o acesso usando o botão abaixo. Este botão só funciona para o ID autorizado do criador.";
-    if (loginPhoto) {
+    const caption = "ENTEREX · ÁREA ADMINISTRATIVA\n\nConfirme o acesso usando o botão abaixo. Este botão só funciona para o ID autorizado do criador.";
+    if (loginPhotos.length) {
+      const loginPhoto = loginPhotos[Math.floor(Math.random() * loginPhotos.length)];
       await sendTelegramPhoto(chatId, loginPhoto, caption, keyboard);
     } else {
-      await sendTelegramText(chatId, "🖤 ENTEREX · ÁREA ADMINISTRATIVA\\n\\nAinda falta a imagem de login. Envie um arquivo JPG, PNG ou WEBP para media/fotos/login/ no GitHub. Depois use /login novamente.", keyboard);
+      await sendTelegramText(chatId, "🖤 ENTEREX · ÁREA ADMINISTRATIVA\n\nAinda não encontrei uma imagem no canal de login. Publica uma foto nesse canal e usa /login novamente.", keyboard);
     }
     return;
   }
