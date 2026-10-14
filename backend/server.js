@@ -428,6 +428,28 @@ async function processTelegramUpdate(update) {
     await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: envio apenas quando o MP3 compatível estiver instalado; sem gravação compatível, não envio resposta.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
     return;
   }
+  if (text.startsWith("/chamar")) {
+    if (!isKyodai) {
+      await sendTelegramText(chatId, "Esse comando de configuração é exclusivo do criador da Ayla.");
+      return;
+    }
+    const option = text.split(/\\s+/)[1]?.toLocaleLowerCase("pt-BR") || "status";
+    const creatorProfile = await loadProfile("telegram:" + KYODAI_TELEGRAM_USER_ID);
+    if (option === "on" || option === "ativar") {
+      creatorProfile.proactiveGreetingEnabled = true;
+      await saveProfile("telegram:" + KYODAI_TELEGRAM_USER_ID, creatorProfile);
+      await sendTelegramText(chatId, "Ativado 💗 Quando alguém mandar um cumprimento tipo oi/olá/e aí/opa, vou escolher um horário aleatório entre 12 e 24 horas para chamar a pessoa de novo.");
+    } else if (option === "off" || option === "desativar") {
+      creatorProfile.proactiveGreetingEnabled = false;
+      await saveProfile("telegram:" + KYODAI_TELEGRAM_USER_ID, creatorProfile);
+      await sendTelegramText(chatId, "Desativado 💗 Não vou agendar chamadas depois dos cumprimentos.");
+    } else if (option === "status") {
+      await sendTelegramText(chatId, "Chamadas após cumprimento: " + (creatorProfile.proactiveGreetingEnabled ? "ativadas" : "desativadas") + ". Use /chamar on ou /chamar off.");
+    } else {
+      await sendTelegramText(chatId, "Use /chamar on, /chamar off ou /chamar status.");
+    }
+    return;
+  }
   if (text.startsWith("/modo")) {
     const requestedMode = text.split(/\s+/)[1]?.toLocaleLowerCase("pt-BR");
     if (!["texto","audio","ambos"].includes(requestedMode)) { await sendTelegramText(chatId, "Use assim: /modo texto, /modo audio ou /modo ambos."); return; }
@@ -462,6 +484,30 @@ async function processTelegramUpdate(update) {
     : "REGRA DE TRATAMENTO: converse normalmente e não chame esta pessoa de \"senhor\" por padrão.";
   try {
     const profile = await loadProfile(userId);
+
+    // Se o criador ativou a função, cumprimentos comuns também agendam uma mensagem espontânea entre 12 e 24 horas.
+    const greeting = text.toLocaleLowerCase("pt-BR")
+      .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+      .replace(/[!?.,…]+/g, "").trim();
+    const isGreeting = /^(oi+|ola+|oie+|eai+|e ae|eae|opa+|salve|bom dia|boa tarde|boa noite|hey+|hi+|hello+|fala+|fala tu|tudo bem)$/.test(greeting);
+    if (isGreeting && !isKyodai) {
+      const creatorProfile = await loadProfile("telegram:" + KYODAI_TELEGRAM_USER_ID);
+      if (creatorProfile.proactiveGreetingEnabled === true) {
+        const followups = [
+          "Oii, sumiu por aqui 💗 Como você tá?",
+          "Ei, passei pra saber como você tá 😊",
+          "Oii de novo hehe, como foi teu dia?",
+          "Oi, lembrei da nossa conversa e vim te chamar 💕",
+          "E aí, tudo tranquilo por aí?",
+          "Passei pra dar um oi. Tá fazendo o quê?"
+        ];
+        const followup = followups[Math.floor(Math.random() * followups.length)];
+        const delay = 12 * 60 * 60 * 1000 + Math.floor(Math.random() * (12 * 60 * 60 * 1000 + 1));
+        await scheduleTelegramReply(chatId, followup, "mensagem espontânea de acompanhamento", delay, "texto");
+        console.log("Mensagem espontânea agendada para cumprimento; horas:", Math.round(delay / 3600000 * 100) / 100);
+      }
+    }
+
     const configuredLevel = Number(profile.telegramReplyLevel || 4);
     const level = isKyodai ? 1 : chooseTelegramLevel(profile);
     const reply = await generateAylaReply(text.slice(0, MAX_MESSAGE_CHARS), userId, special);
