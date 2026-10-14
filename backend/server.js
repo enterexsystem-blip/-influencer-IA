@@ -536,7 +536,7 @@ async function processTelegramUpdate(update) {
     return;
   }
   if (text === "/modo" || text.startsWith("/modo ")) {
-    const requestedMode = text.split(/\\s+/)[1]?.toLocaleLowerCase("pt-BR");
+    const requestedMode = text.split(/\s+/)[1]?.toLocaleLowerCase("pt-BR");
     if (!["texto", "audio", "ambos"].includes(requestedMode)) {
       await sendTelegramText(chatId, "Escolhe um modo: /modo texto, /modo audio ou /modo ambos.");
       return;
