@@ -76,3 +76,26 @@ Após salvar as variáveis, confirme em `/health` que `instagram.configured` apa
 - Os IDs de mensagens são deduplicados temporariamente em memória; para produção com alta disponibilidade, mova a deduplicação para PostgreSQL.
 - Antes de ativar para público, teste com uma conta autorizada e monitore os logs do Render. Não envie mensagens promocionais não solicitadas.
 - O webhook rejeita POSTs sem assinatura válida. A IA não deve alegar que é uma pessoa real; Ayla é uma personagem virtual.
+
+
+## Diagnóstico operacional da Ayla (Telegram)
+
+- `GET /diagnostics` ou `GET /status`: relatório JSON com configuração presente/ausente, uptime, estado do webhook, inventário básico de áudios, contadores de mensagens/respostas e até 20 erros recentes. Não retorna tokens nem IDs de usuários.
+- No Telegram, envie `/status` ou `/diagnostico` para receber o resumo técnico. Use `/menu` para alternar os modos.
+- O campo `errors.latest.phase` aponta a etapa da falha (por exemplo, geração, webhook, envio, indicador de digitação ou áudio). `errors.recent` mantém o histórico em memória até reiniciar o serviço.
+- Falhas no indicador “digitando...” não devem bloquear a mensagem; o sistema registra o erro e continua tentando enviar a resposta.
+- `/modo texto`: envia texto. `/modo audio`: tenta uma gravação compatível e, se não existir, envia texto em vez de ficar em silêncio. `/modo ambos`: envia texto e acrescenta um áudio quando há gravação compatível.
+- Os áudios atuais são gravações pré-existentes, não síntese de voz para qualquer frase. Para falar qualquer resposta gerada pela IA, é necessário integrar um serviço TTS e configurar suas credenciais.
+
+## Verificação automática no GitHub
+
+O workflow `.github/workflows/backend-diagnostics.yml` roda ao alterar o backend ou a biblioteca de áudio. Ele verifica a sintaxe JavaScript, executa testes de regressão, inventaria os áudios e salva um artefato `ayla-backend-diagnostics` por 14 dias. Para abrir o resultado: GitHub → Actions → **Backend diagnostics** → execução mais recente → Artifacts.
+
+Também é possível executar localmente na pasta `backend`:
+
+```bash
+npm test
+npm run diagnose
+```
+
+O relatório de CI confirma a integridade estática do repositório; ele não substitui a verificação de variáveis no Render nem garante, sozinho, que o Telegram aceitou o webhook.
