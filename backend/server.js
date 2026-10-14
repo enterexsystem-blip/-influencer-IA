@@ -601,10 +601,32 @@ async function processTelegramUpdate(update) {
     await sendTelegramText(chatId, "💗 AYLA · CENTRAL DE CONTROLE\n\nModo atual: " + mode + ". Escolhe uma opção abaixo ou usa /modo texto, /modo audio e /modo ambos.", aylaMenuKeyboard());
     return;
   }
-  if (text === "/status") {
+  if (text === "/status" || text === "/diagnostico") {
     const profile = await loadProfile(userId);
     const mode = profile.telegramMode || "texto";
-    await sendTelegramText(chatId, "⚙️ Configuração da Ayla\nModo de resposta: " + mode + "\nNível de resposta: " + (profile.telegramReplyLevel || 4) + "\nÁudios personalizados: envio somente de MP3 compatível; sem gravação, silêncio.\nMemória: " + (dbReady ? "PostgreSQL persistente" : "temporária até configurar o banco") + "\nTratamento exclusivo de criador: " + (isKyodai ? "ativado para esta conta" : "não ativado"));
+    const audio = await getAudioInventory();
+    const lastError = runtimeDiagnostics.lastError;
+    const lines = [
+      "⚙️ AYLA · STATUS TÉCNICO",
+      "Modo: " + mode + " | Nível: " + (profile.telegramReplyLevel || 4),
+      "Backend: " + (TELEGRAM_BOT_TOKEN ? "token configurado" : "FALTA TELEGRAM_BOT_TOKEN"),
+      "Webhook: " + (telegramWebhookRegistered ? "registrado" : "NÃO confirmado"),
+      "URL webhook: " + (TELEGRAM_WEBHOOK_BASE_URL ? "configurada" : "FALTA TELEGRAM_WEBHOOK_BASE_URL"),
+      "Segredo webhook: " + (TELEGRAM_WEBHOOK_SECRET ? "configurado" : "FALTA TELEGRAM_WEBHOOK_SECRET"),
+      "IA: " + (API_KEY ? PROVIDER + " / " + MODEL : "SEM CHAVE DE IA; usando fallback local"),
+      "Memória: " + (dbReady ? "PostgreSQL persistente" : "memória temporária"),
+      "Áudios encontrados: " + audio.audioFiles + " | pasta: " + (audio.directoryExists ? "OK" : "AUSENTE"),
+      "Updates recebidos: " + runtimeDiagnostics.updatesReceived + " | mensagens: " + runtimeDiagnostics.messagesReceived,
+      "Respostas geradas: " + runtimeDiagnostics.repliesGenerated + " | enviadas: " + runtimeDiagnostics.repliesSent + " | áudios enviados: " + runtimeDiagnostics.audioSent,
+      "Alternativas em texto: " + runtimeDiagnostics.textFallbacks + " | pendências: " + scheduledTelegramTimers.size,
+      "Última mensagem: " + (runtimeDiagnostics.lastMessageAt || "nenhuma desde que iniciou"),
+      "Última resposta gerada: " + (runtimeDiagnostics.lastReplyGeneratedAt || "nenhuma"),
+      "Última resposta enviada: " + (runtimeDiagnostics.lastReplySentAt || "nenhuma"),
+      "Último erro: " + (lastError ? lastError.phase + " — " + lastError.message : telegramLastReplyError || telegramWebhookLastError || "nenhum registrado"),
+      "Iniciado: " + new Date(startedAt).toISOString(),
+      "Use /menu para mudar o modo."
+    ];
+    await sendTelegramText(chatId, lines.join("\n"));
     return;
   }
   if (text.startsWith("/chamar")) {
@@ -768,6 +790,40 @@ const server = createServer(async (req, res) => {
     } catch (error) {
       return send(res, error?.status || 400, { error: error?.message || "Webhook inválido." });
     }
+  }
+
+  if (req.method === "GET" && (requestUrl.pathname === "/diagnostics" || requestUrl.pathname === "/status")) {
+    const audio = await getAudioInventory();
+    return send(res, 200, {
+      ok: !runtimeDiagnostics.lastError,
+      service: "influencer-ia-backend",
+      version: "diagnostics-v1",
+      startedAt: new Date(startedAt).toISOString(),
+      uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
+      runtime: {
+        node: process.version,
+        provider: PROVIDER,
+        model: MODEL,
+        aiKeyConfigured: Boolean(API_KEY),
+        database: dbReady ? "postgresql" : "temporary-memory",
+        pendingReplies: scheduledTelegramTimers.size
+      },
+      configuration: {
+        telegramTokenConfigured: Boolean(TELEGRAM_BOT_TOKEN),
+        telegramWebhookSecretConfigured: Boolean(TELEGRAM_WEBHOOK_SECRET),
+        telegramWebhookBaseUrlConfigured: Boolean(TELEGRAM_WEBHOOK_BASE_URL),
+        telegramWebhookRegistered,
+        instagramConfigured: Boolean(INSTAGRAM_ACCOUNT_ID && INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_APP_SECRET && INSTAGRAM_VERIFY_TOKEN)
+      },
+      audio,
+      counters: runtimeDiagnostics,
+      errors: {
+        webhook: telegramWebhookLastError,
+        reply: telegramLastReplyError,
+        latest: runtimeDiagnostics.lastError,
+        recent: runtimeDiagnostics.recentErrors
+      }
+    });
   }
 
   if (req.method === "GET" && req.url === "/health") {
