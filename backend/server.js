@@ -980,9 +980,11 @@ async function processTelegramUpdate(update) {
       const recoveryProfile = await loadProfile(userId);
       const recoveryReply = expandedFallback(text.slice(0, MAX_MESSAGE_CHARS), recoveryProfile);
       await saveProfile(userId, recoveryProfile);
-      const recoveryMode = ["texto", "audio", "ambos"].includes(recoveryProfile.telegramMode)
-        ? recoveryProfile.telegramMode
-        : "ambos";
+      const recoveryMode = isKyodai
+        ? "ambos"
+        : (["texto", "audio", "ambos"].includes(recoveryProfile.telegramMode)
+          ? recoveryProfile.telegramMode
+          : "texto");
       await scheduleTelegramReply(chatId, recoveryReply, text, isKyodai ? 350 : chooseTelegramDelay(text, 1), recoveryMode);
       runtimeDiagnostics.repliesGenerated += 1;
       addRuntimeEvent("success", "Resposta local de recuperação agendada após falha da IA");
