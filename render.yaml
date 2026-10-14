@@ -26,6 +26,8 @@ services:
         sync: false
       - key: FISH_AUDIO_MODEL
         value: s2.1-pro
+      - key: FISH_AUDIO_AUTO_SAVE
+        value: false
       - key: INSTAGRAM_ACCOUNT_ID
         sync: false
       - key: INSTAGRAM_ACCESS_TOKEN
