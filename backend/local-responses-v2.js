@@ -1,9 +1,21 @@
+// 150 respostas distintas para perguntas como "tudo bem?", "como você está?" e "como cê tá?".
+const BEM_VARIATIONS = [
+  "Tô bem sim, senhor", "Tô tranquila por aqui", "Tô levando numa boa", "Tô melhor agora", "Tô de boa, obrigada",
+  "Tudo certinho comigo", "Tudo em ordem por aqui", "Tô numa fase calma", "Tô bem, sem novidade", "Tô feliz que perguntou",
+  "Tô bem na medida do possível", "Tô mais quietinha hoje", "Tô com a cabeça tranquila", "Tô me sentindo bem", "Tô numa boa hoje"
+].flatMap(start => [
+  ", e o senhor?", " 😊 E por aí?", ". Como você está?", ", obrigada por perguntar.", " 💗 E você, tudo certo?",
+  ". Como tá sendo seu dia?", ", e como estão as coisas contigo?", ". Quer me contar como você tá?", ", senhor. E você?",
+  ". Espero que esteja tudo bem por aí também."
+].map(end => start + end));
+
 // Variações locais da Ayla para conversas comuns. Não dependem de um provedor externo.
 const POOLS = {
  oi: [
  "ooii 💗 apareceu! Como cê tá?", "oii, tudo bem por aí?", "oiee hehe, como foi teu dia?", "eae mn, qual foi a boa?", "opa, chegou na paz?", "oii 😊 tava fazendo o quê?", "oie, me conta uma novidade", "salvee, como andam as coisas?", "bom diaaa, dormiu direitinho?", "boa tardee, como tá sendo o dia?", "boa noitee 🌙 ainda tá na correria?", "olha quem apareceu kkk, tudo certo?", "oii, fala comigo. Como tu tá hoje?", "eaii, tá tudo tranquilo desse lado?", "oiee 💕 aconteceu alguma coisa nova?", "oi, cheguei. Me conta o que perdi", "opa hehe, qual é a fofoca de hoje?", "eae, como tá teu humor hoje?", "oii, espero que teu dia esteja de boa", "falaaa, tava querendo conversar sobre o quê?", "oi, mn. Tá tudo na paz?", "oiee, me atualiza da tua vida", "eai, tá podendo conversar agora?", "oii! Como tu acordou hoje?", "opa, bora conversar um pouco?"
  ],
  bem: [
+ ...BEM_VARIATIONS,
  "tô bem simm, obrigada por perguntar. E tu?", "tudo tranquilo por aqui. Como tu tá de verdade?", "tô de boa hehe, e desse lado?", "tudo certo. Teu dia tá corrido?", "tô bem, só na minha hoje. E tu?", "por aqui tá tudo na paz. Como cê tá?", "tudo bemm 💗 aconteceu algo contigo?", "tô tranquila. Mas quero saber de ti também", "indo bem, um dia de cada vez kkk. E tu?", "tô legal sim. Como tá tua cabeça hoje?", "tudo certo por enquanto, e por aí?", "tô de boa, e tu tá se cuidando?", "tô bem. Me conta como foi teu dia até agora", "mais ou menos, pra ser sincera. E tu?", "tudo tranquilo, sem muita novidade. Tu tem?", "tô bemm, valeu por perguntar 😊", "na paz. Hoje tá sendo um dia calmo", "tô melhor agora que parei um pouco kkk", "tô indo, né? E tu, como tá mesmo?", "tudo certo. Tu perguntou por educação ou tá sentindo que tem algo estranho? kkk"
  ],
  triste: [
@@ -42,7 +54,7 @@ const POOLS = {
 };
 const RULES = [
  [/\b(oi+|ola|eae|eai|salve|opa|bom dia|boa tarde|boa noite|oie+)\b/, "oi"],
- [/\b(tudo bem|tudo certo|suave|blz|como voce ta|como ce ta|como tu ta|como vai)\b/, "bem"],
+ [/\b(tudo bem|tudo certo|suave|blz|como voce ta|como voce esta|como esta voce|como ce ta|como ce esta|como tu ta|como tu esta|como vai|como voce se sente|tudo tranquilo|tudo em ordem)\b/, "bem"],
  [/\b(triste|depre|mal hoje|to mal|muito mal|ansioso|ansiosa|sozinho|sozinha|desanimad|chatead|chorando|vazio|vazia)\b/, "triste"],
  [/\b(feliz|consegui|deu certo|vitoria|passei|aprovad|conquistei|realizei|orgulho)\b/, "feliz"],
  [/\b(trabalho|trabalh|emprego|chefe|servico|corre|cansad|exaust|trampo|patrao|salario)\b/, "trabalho"],
