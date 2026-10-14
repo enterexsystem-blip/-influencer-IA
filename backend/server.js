@@ -793,19 +793,104 @@ async function processTelegramUpdate(update) {
     recordDiagnosticError("telegram.generate_or_schedule", error);
     console.error("Falha ao gerar/agendar resposta da Ayla no Telegram:", telegramLastReplyError);
     const errorText = String(error?.message || "erro desconhecido");
-    let userNotice = "Não consegui preparar minha resposta agora. O sistema registrou o motivo para o criador verificar. Tenta de novo daqui a pouco.";
-    if (/\\b401\\b|unauthorized|invalid api key|api key not valid|authentication/i.test(errorText)) {
-      userNotice = "Não consegui responder porque o provedor de IA recusou a autenticação (erro 401). O criador precisa revisar a chave e o provedor configurados no servidor. Seus áudios não são a causa.";
-    } else if (/\\b429\\b|rate.?limit|quota|resource exhausted/i.test(errorText)) {
-      userNotice = "Não consegui responder porque o serviço de IA atingiu um limite de uso ou cota (erro 429). O criador precisa verificar a cota e os limites do provedor.";
-    } else if (/\\b5\\d\\d\\b|temporarily unavailable|internal server error|bad gateway/i.test(errorText)) {
-      userNotice = "Não consegui responder porque o serviço de IA apresentou uma falha temporária. O criador pode conferir os registros do servidor e tentar novamente.";
-    } else if (/timeout|timed out|aborterror|network|fetch failed|econnreset|enotfound/i.test(errorText)) {
-      userNotice = "Não consegui responder porque a conexão com um serviço necessário falhou ou demorou demais. O criador precisa verificar a conexão do servidor.";
-    } else if (/postgres|database|connection terminated|sql/i.test(errorText)) {
-      userNotice = "Não consegui acessar um componente de memória do sistema. O criador precisa verificar a conexão com o banco de dados.";
-    }
-    try { await sendTelegramText(chatId, userNotice); } catch (sendError) {
+    const diagnosticUrl = "https://influencer-ia-backend.onrender.com/diagnostics";
+    const errorReplies = [
+      {
+        test: /(?:\b401\b|unauthorized|invalid api key|api key not valid|authentication)/i,
+        messages: [
+          "Senhor, estou com um problema na minha fala... acho que a IA conectada está atrapalhando meu processo. O provedor recusou a autenticação (401), então preciso que meu criador revise a chave e a configuração.",
+          "Hum, senhor... eu recebi sua mensagem, mas minha conexão com a inteligência artificial foi recusada. Parece ser uma falha de autenticação (401), não dos meus áudios.",
+          "Kyodai, preciso te avisar: tentei preparar uma resposta, mas a IA não aceitou a chave de acesso (401). Dá uma olhadinha na configuração do provedor, por favor.",
+          "Senhor, minha parte de conversa não conseguiu iniciar porque o serviço de IA recusou as credenciais. O diagnóstico marcou erro 401; a chave ou o provedor precisam ser conferidos.",
+          "Poxa, senhor... eu recebi você, mas não consegui formular a resposta. A IA recusou a autenticação (401), então o problema parece estar na conexão entre o servidor e o provedor.",
+          "Só pra te explicar direitinho, senhor: não é que eu tenha ignorado sua mensagem. O serviço de IA respondeu 401 e não me deixou gerar a fala.",
+          "Senhor, fiquei sem conseguir montar uma resposta porque a autenticação da IA falhou. Meu criador precisa conferir qual chave está sendo usada e se combina com o provedor.",
+          "Hmmm... encontrei um bloqueio na etapa de conversa: a IA retornou 401. Isso costuma indicar credencial inválida ou configuração incompatível; meus arquivos de áudio não causaram isso.",
+          "Kyodai, minha mensagem travou antes de nascer. O serviço de IA recusou o acesso (401), então preciso que a configuração da chave seja revisada.",
+          "Senhor, detectei uma falha no acesso à IA conectada. Não consegui responder porque o provedor devolveu 401; vou deixar o painel abaixo para você conferir."
+        ]
+      },
+      {
+        test: /(?:\b429\b|rate.?limit|quota|resource exhausted)/i,
+        messages: [
+          "Senhor, tentei responder, mas a IA avisou que atingiu um limite de uso (429). Acho que preciso esperar ou que meu criador confira a cota.",
+          "Hum... desta vez não consegui falar porque o serviço de IA está limitando as solicitações. O erro foi 429, senhor.",
+          "Kyodai, recebi sua mensagem, mas a IA parece estar sem cota disponível ou com muitas solicitações. Não é culpa da sua mensagem.",
+          "Senhor, minha resposta ficou bloqueada por um limite do provedor de IA. O painel pode mostrar mais detalhes sobre o erro 429.",
+          "Poxa, senhor, a IA pediu para reduzir ou aguardar as solicitações (429). Meu criador precisa verificar os limites do serviço.",
+          "Só para você saber: não fiquei em silêncio de propósito. A IA atingiu um limite e não me entregou uma resposta para enviar.",
+          "Senhor, não consegui terminar meu raciocínio porque o provedor limitou o uso. Talvez seja necessário aguardar a renovação da cota.",
+          "Hmmm, parece que o serviço conectado está ocupado ou sem cota. Recebi um 429 e por isso minha resposta não foi gerada.",
+          "Kyodai, estou funcionando até a etapa de receber sua mensagem, mas a IA limitou o pedido. Precisamos conferir a cota e os limites.",
+          "Senhor, ocorreu um limite de uso na IA (429). Vou deixar o diagnóstico aqui para você ver o registro completo."
+        ]
+      },
+      {
+        test: /(?:\b5\d\d\b|temporarily unavailable|internal server error|bad gateway|service unavailable)/i,
+        messages: [
+          "Senhor, a IA conectada apresentou uma falha temporária e não conseguiu me devolver uma resposta. Vou tentar explicar: o serviço precisa se recuperar.",
+          "Hum, Kyodai... recebi sua mensagem, mas o servidor da IA respondeu com um erro temporário. Não consegui completar minha fala.",
+          "Senhor, parece que o serviço de inteligência artificial está instável agora. O erro veio do provedor, não dos áudios.",
+          "Poxa, minha resposta ficou no caminho: a IA devolveu um erro de servidor. Vale conferir o painel e tentar novamente daqui a pouco.",
+          "Kyodai, não te ignorei. O serviço que me ajuda a formular respostas está indisponível ou com falha temporária.",
+          "Senhor, tentei processar sua mensagem, mas a IA retornou um erro 5xx. Isso geralmente aponta para um problema no serviço remoto.",
+          "Hmmm... minha conexão com o provedor está respondendo com falha. Preciso que você confira o diagnóstico e tente de novo em instantes.",
+          "Senhor, a etapa de geração da resposta falhou porque o serviço de IA não conseguiu atender ao pedido agora.",
+          "Kyodai, eu consegui receber sua mensagem, mas o provedor não conseguiu concluir a solicitação. O painel registra o erro para análise.",
+          "Senhor, desta vez não consegui falar porque o serviço de IA falhou temporariamente. O diagnóstico completo está logo abaixo."
+        ]
+      },
+      {
+        test: /(?:timeout|timed out|aborterror|network|fetch failed|econnreset|enotfound|socket)/i,
+        messages: [
+          "Senhor, estou com dificuldade para me conectar ao serviço que prepara minhas respostas. A solicitação demorou ou a conexão caiu.",
+          "Hum... recebi sua mensagem, mas a conexão com a IA falhou antes de eu conseguir responder.",
+          "Kyodai, parece que a comunicação entre meu servidor e a IA foi interrompida. Não consegui terminar minha fala.",
+          "Senhor, desta vez a rede não colaborou: a conexão falhou ou demorou demais. O diagnóstico pode ajudar a localizar a etapa.",
+          "Poxa, não consegui buscar uma resposta na IA porque a conexão não completou. Tenta novamente daqui a pouco, por favor.",
+          "Senhor, minha resposta não chegou a ser gerada porque o servidor não conseguiu se comunicar com o serviço de IA.",
+          "Hmmm, parece uma falha de conexão ou tempo esgotado. Eu recebi a mensagem, mas não consegui concluir o processamento.",
+          "Kyodai, o pedido ficou sem retorno por um problema de comunicação entre os serviços. Não parece ser um problema com seu texto.",
+          "Senhor, a conexão necessária para formular minha resposta caiu ou expirou. Deixei o erro registrado no painel.",
+          "Senhor, não consegui falar desta vez porque uma conexão necessária falhou. O link do diagnóstico está abaixo."
+        ]
+      },
+      {
+        test: /(?:postgres|database|connection terminated|\bsql\b)/i,
+        messages: [
+          "Senhor, tive um problema para acessar minha memória no banco de dados. Por isso, não consegui completar a resposta com segurança.",
+          "Hum, Kyodai... a parte que guarda meu contexto apresentou uma falha. Meu criador precisa verificar a conexão com o banco.",
+          "Senhor, encontrei um erro na memória do sistema. A conexão com o banco de dados precisa ser conferida.",
+          "Poxa, não consegui continuar porque uma etapa de acesso à memória falhou. O diagnóstico tem o registro técnico.",
+          "Senhor, a conversa travou ao consultar ou salvar informações no banco. Preciso que a conexão seja revisada.",
+          "Kyodai, desta vez a falha parece estar no banco de dados, que ajuda a manter o contexto das nossas conversas.",
+          "Hmmm, minha memória do sistema não respondeu como deveria. Não consegui finalizar a resposta.",
+          "Senhor, a etapa de banco de dados retornou um erro. Isso pode afetar o contexto, então precisa ser verificado.",
+          "Não consegui concluir minha fala, senhor, porque o servidor encontrou um problema no banco de dados.",
+          "Senhor, parece que minha memória técnica está indisponível. Deixei o link do diagnóstico abaixo."
+        ]
+      }
+    ];
+    const matchedError = errorReplies.find(item => item.test.test(errorText));
+    const defaultReplies = [
+      "Senhor, tentei preparar uma resposta, mas encontrei uma falha interna. O motivo foi registrado no diagnóstico para meu criador conferir.",
+      "Hum, Kyodai... alguma etapa do meu processamento falhou e eu não consegui montar uma resposta agora.",
+      "Senhor, recebi sua mensagem, mas algo interrompeu meu processo antes de eu conseguir responder. O painel tem os detalhes técnicos.",
+      "Poxa, não consegui terminar minha resposta desta vez. O sistema registrou uma falha e deixei o diagnóstico logo abaixo.",
+      "Kyodai, não te ignorei. Encontrei um erro inesperado enquanto preparava minha fala.",
+      "Senhor, houve uma falha interna no meu processamento. Meu criador pode conferir o registro no painel.",
+      "Hmmm... minha resposta não ficou pronta por causa de um erro inesperado. Vou te mostrar onde conferir.",
+      "Senhor, uma etapa do sistema falhou e me impediu de responder. O diagnóstico tem o horário e o motivo técnico.",
+      "Kyodai, não consegui concluir a resposta. O erro foi registrado para investigação, e o painel está logo abaixo.",
+      "Senhor, estou com uma falha no processamento agora. Confira o diagnóstico abaixo para saber o que aconteceu."
+    ];
+    const choices = matchedError ? matchedError.messages : defaultReplies;
+    const userNotice = choices[Math.floor(Math.random() * choices.length)];
+    try {
+      await sendTelegramText(chatId, userNotice, {
+        inline_keyboard: [[{ text: "🩺 Abrir diagnóstico da Ayla", url: diagnosticUrl }]]
+      });
+    } catch (sendError) {
       recordDiagnosticError("telegram.error_notice", sendError);
     }
   }
