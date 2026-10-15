@@ -1100,6 +1100,36 @@ async function processTelegramUpdate(update) {
     await sendTelegramText(chatId, "📚 BIBLIOTECA DA AYLA\nItens registrados: " + items.length + "\nBanco: " + (dbReady ? "persistente" : "temporário até reiniciar") + "\n\nCategorias:\n" + categoryText + "\n\nCanais:\n" + channelText);
     return;
   }
+  if (text === "/canais" || text.startsWith("/canais@")) {
+    if (!isKyodai || message?.chat?.type !== "private") {
+      await sendTelegramText(chatId, "Esse comando de diagnóstico é exclusivo do criador no PV.");
+      return;
+    }
+    const items = await getTelegramMedia("geral", []);
+    if (!items.length) {
+      await sendTelegramText(chatId, "📡 Ainda não registrei nenhuma mídia dos canais. A Ayla só consegue catalogar publicações novas recebidas depois que o webhook está ativo; publique ou encaminhe uma mídia em cada canal para testar.");
+      return;
+    }
+    const channels = new Map();
+    for (const item of items) {
+      const key = item.chatId;
+      if (!channels.has(key)) channels.set(key, { title: item.chatTitle || "Canal sem título", total: 0, categories: new Map(), latest: 0 });
+      const channel = channels.get(key);
+      channel.total += 1;
+      channel.categories.set(item.category || "geral", (channel.categories.get(item.category || "geral") || 0) + 1);
+      channel.latest = Math.max(channel.latest, Number(item.messageId) || 0);
+    }
+    const lines = Array.from(channels.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 25)
+      .map((channel) => {
+        const cats = Array.from(channel.categories.entries()).sort((a, b) => b[1] - a[1]).map(([name, count]) => name + ": " + count).join(", ");
+        return "• " + channel.title + " — " + channel.total + " mídia(s)\n  " + cats;
+      });
+    await sendTelegramText(chatId, "📡 CANAIS DA AYLA\nTotal catalogado: " + items.length + " mídia(s) em " + channels.size + " canal(is).\n\n" + lines.join("\n"));
+    return;
+  }
+
   if (text === "/audio" || text === "/teste_audio") {
     if (!isKyodai) {
       await sendTelegramText(chatId, "Esse teste de áudio é exclusivo do criador da Ayla.");
