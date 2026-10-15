@@ -626,6 +626,89 @@ function matchBundledAylaAudio(sourceMessage) {
     .replace(/\s+/g, " ").trim();
   const source = normalize(sourceMessage);
   if (!source) return null;
+  // Frases explícitas e estáveis para os áudios já existentes.
+  // Essas regras funcionam mesmo se uma frase ainda não estiver no catálogo ZIP.
+  const directAudioRoutes = [
+    { audio: "05_afeto_reacoes/kyodai_afeto_sincero.mp3", patterns: [
+      /^(?:eu )?te amo+$/,
+      /^(?:eu )?amo você$/,
+      /^(?:eu )?amo vc$/,
+      /^(?:eu )?te amo muito$/,
+      /^(?:eu )?gosto muito de você$/,
+      /^(?:eu )?gosto muito de vc$/,
+      /^gosto de você$/,
+      /^gosto de vc$/,
+      /^você é importante pra mim$/,
+      /^vc é importante pra mim$/,
+      /^fiz isso pra você$/,
+      /^fiz isso pra vc$/,
+      /^gostou disso$/,
+      /^você gostou$/,
+      /^o que achou ayla$/
+    ]},
+    { audio: "01_identidade_nome/perguntar_nome.mp3", patterns: [
+      /^(?:qual é|qual o|qual teu|qual seu) nome$/,
+      /^como você se chama$/,
+      /^como vc se chama$/,
+      /^como tu te chama$/
+    ]},
+    { audio: "01_identidade_nome/identidade_eu_sei_quem_sou.mp3", patterns: [
+      /^quem é você$/,
+      /^quem é vc$/,
+      /^você sabe quem é você$/,
+      /^tu sabe quem tu é$/,
+      /^se apresenta$/,
+      /^me fala sobre você$/
+    ]},
+    { audio: "02_inicio_conversa/inicio_antes_de_comecar.mp3", patterns: [
+      /^vamos começar$/,
+      /^antes de começar$/,
+      /^pode começar$/,
+      /^bora iniciar$/,
+      /^tá pronta$/,
+      /^esta pronta$/
+    ]},
+    { audio: "01_identidade_nome/pergunta_em_aberto.mp3", patterns: [
+      /^o que você sente$/,
+      /^o que vc sente$/,
+      /^como você se sente$/,
+      /^como vc se sente$/,
+      /^qual é sua emoção$/,
+      /^qual é a emoção$/,
+      /^me diz o que sente$/
+    ]},
+    { audio: "03_contexto_memoria/voce_mencionou_que.mp3", patterns: [
+      /^eu te falei que$/,
+      /^lembra que eu mencionei$/,
+      /^como eu disse antes$/,
+      /^sobre aquilo que eu contei$/,
+      /^você lembra do que falei$/
+    ]},
+    { audio: "03_contexto_memoria/kyodai_contexto_reflexivo.mp3", patterns: [
+      /^sobre o que eu falei$/,
+      /^lembra do que eu disse$/,
+      /^vamos falar sobre aquilo$/,
+      /^você lembra de mim$/
+    ]},
+    { audio: "03_contexto_memoria/kyodai_analitico.mp3", patterns: [
+      /^analisa isso$/,
+      /^o que você acha de mim$/,
+      /^fala sério comigo$/,
+      /^me analisa$/,
+      /^kyodai presta atenção$/
+    ]},
+    { audio: "04_ambiente_sensores/ambiente_sensores.mp3", patterns: [
+      /^onde eu tô$/,
+      /^onde eu estou$/,
+      /^o que você percebe$/,
+      /^analisa meu ambiente$/,
+      /^você consegue perceber meu ambiente$/,
+      /^o que seus sensores dizem$/
+    ]}
+  ];
+  for (const route of directAudioRoutes) {
+    if (route.patterns.some(pattern => pattern.test(source))) return route.audio;
+  }
   // Comando explícito de teste: o áudio enviado originalmente como NANNO.mp3
   // foi organizado no pacote com o nome audio_sem_rotulo.mp3.
   if (/\b(?:nanno|nanno mp3|audio nanno|teste nanno)\b/i.test(source)) {
