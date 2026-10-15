@@ -600,7 +600,7 @@ async function loadBundledAylaAudioRoutes() {
     for (const entry of zip.getEntries()) {
       const name = String(entry.entryName || "").replace(/\\/g, "/");
       if (entry.isDirectory || name.startsWith("/") || name.split("/").includes("..")) continue;
-      if (!/^(?:audio_routes\\.json|(?:01_identidade_nome|02_inicio_conversa|03_contexto_memoria|04_ambiente_sensores|05_afeto_reacoes|99_revisar)\\/[a-z0-9_-]+\\.mp3)$/i.test(name)) continue;
+      if (!/^(?:audio_routes\.json|(?:01_identidade_nome|02_inicio_conversa|03_contexto_memoria|04_ambiente_sensores|05_afeto_reacoes|99_revisar)\/[a-z0-9_-]+\.mp3)$/i.test(name)) continue;
       zip.extractEntryTo(entry, AUDIO_DIR, true, true);
     }
     const catalog = JSON.parse(await readFile(join(AUDIO_DIR, "audio_routes.json"), "utf8"));
