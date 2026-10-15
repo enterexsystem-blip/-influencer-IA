@@ -625,6 +625,11 @@ function matchBundledAylaAudio(sourceMessage) {
     .replace(/\s+/g, " ").trim();
   const source = normalize(sourceMessage);
   if (!source) return null;
+  // Comando explícito de teste: o áudio enviado originalmente como NANNO.mp3
+  // foi organizado no pacote com o nome audio_sem_rotulo.mp3.
+  if (/\b(?:nanno|nanno mp3|audio nanno|teste nanno)\b/i.test(source)) {
+    return "99_revisar/audio_sem_rotulo.mp3";
+  }
   let bestScore = 0;
   let candidates = [];
   for (const route of bundledAylaAudioRoutes) {
