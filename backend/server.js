@@ -47,6 +47,7 @@ const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || "
 const TELEGRAM_WEBHOOK_BASE_URL = process.env.TELEGRAM_WEBHOOK_BASE_URL?.trim().replace(/\/+$/, "") || "";
 const KYODAI_TELEGRAM_USER_ID = process.env.KYODAI_TELEGRAM_USER_ID?.trim() || "8737360017";
 const seenTelegramUpdateIds = new Map();
+const recentNannoAudioSends = new Map();
 let telegramWebhookRegistered = false;
 let telegramWebhookLastError = null;
 let telegramLastReplyError = null;
@@ -1456,6 +1457,18 @@ async function processTelegramUpdate(update) {
     }
     // Teste determinístico do áudio NANNO: envia o arquivo diretamente, sem a IA improvisar texto.
     if (/^(?:nanno|nanno mp3|audio nanno|teste nanno)$/i.test(normalizedIncoming.trim())) {
+      // Evita envio duplicado caso o mesmo comando seja processado duas vezes em sequência.
+      const nannoSendKey = String(chatId) + ":" + normalizedIncoming.trim().toLowerCase();
+      const lastNannoSendAt = recentNannoAudioSends.get(nannoSendKey) || 0;
+      if (Date.now() - lastNannoSendAt < 15000) {
+        addRuntimeEvent("info", "Envio NANNO duplicado ignorado");
+        return;
+      }
+      recentNannoAudioSends.set(nannoSendKey, Date.now());
+      if (recentNannoAudioSends.size > 500) {
+        const oldestKey = recentNannoAudioSends.keys().next().value;
+        if (oldestKey !== undefined) recentNannoAudioSends.delete(oldestKey);
+      }
       try {
         await sendTelegramAudio(chatId, "99_revisar/audio_sem_rotulo.mp3");
         runtimeDiagnostics.audioSent += 1;
