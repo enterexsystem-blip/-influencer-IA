@@ -4,12 +4,15 @@ import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expandedFallback } from "./local-responses-v2.js";
+import AdmZip from "adm-zip";
 
 const PORT = Number(process.env.PORT || 8080);
 const BACKEND_DIR = dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = join(BACKEND_DIR, "..", "media", "audios");
 const PHOTO_DIR = join(BACKEND_DIR, "..", "media", "fotos");
 const ADULT_VIDEO_DIR = join(BACKEND_DIR, "..", "media", "18+");
+let bundledAylaAudioRoutes = [];
+let bundledAylaAudioStatus = { loaded: false, routes: 0, files: 0, error: null };
 const KEY_CANDIDATES = [process.env.AI_API_KEY, process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY].map(key => key?.trim()).filter(Boolean);
 const API_KEY = KEY_CANDIDATES.find(key => key.startsWith("sk-or-v1-")) || KEY_CANDIDATES[0] || "";
 const PROVIDER = API_KEY.startsWith("sk-or-v1-") ? "openrouter" : (process.env.AI_PROVIDER || "gemini").toLowerCase();
@@ -233,17 +236,18 @@ async function getMediaCatalog() {
 }
 
 async function getAudioInventory() {
-  const folder = join(AUDIO_DIR, "01-cumprimentos");
+  const folder = join(AUDIO_DIR, "01_identidade_nome");
   try {
     const entries = await readdir(folder, { withFileTypes: true });
     const files = entries.filter(entry => entry.isFile() && !/\.(zip|json|md|txt)$/i.test(entry.name));
     return {
       directoryExists: true,
       audioFiles: files.length,
-      examples: files.slice(0, 5).map(entry => entry.name)
+      examples: files.slice(0, 5).map(entry => entry.name),
+      bundledAylaAudio: bundledAylaAudioStatus
     };
   } catch (error) {
-    return { directoryExists: false, audioFiles: 0, examples: [], error: String(error?.code || error?.message || "erro").slice(0, 100) };
+    return { directoryExists: false, audioFiles: 0, examples: [], bundledAylaAudio: bundledAylaAudioStatus, error: String(error?.code || error?.message || "erro").slice(0, 100) };
   }
 }
 
@@ -587,7 +591,72 @@ async function chooseTelegramPhoto(messageText) {
   return null;
 }
 
+async function loadBundledAylaAudioRoutes() {
+  try {
+    const zipPath = join(AUDIO_DIR, "ayla_audio_pack.zip");
+    const zipBytes = await readFile(zipPath);
+    const zip = new AdmZip(zipBytes);
+    // O ZIP vem do próprio repositório. Extrai apenas áudio e o catálogo de rotas.
+    for (const entry of zip.getEntries()) {
+      const name = String(entry.entryName || "").replace(/\\/g, "/");
+      if (entry.isDirectory || name.startsWith("/") || name.split("/").includes("..")) continue;
+      if (!/^(?:audio_routes\\.json|(?:01_identidade_nome|02_inicio_conversa|03_contexto_memoria|04_ambiente_sensores|05_afeto_reacoes|99_revisar)\\/[a-z0-9_-]+\\.mp3)$/i.test(name)) continue;
+      zip.extractEntryTo(entry, AUDIO_DIR, false, true);
+    }
+    const catalog = JSON.parse(await readFile(join(AUDIO_DIR, "audio_routes.json"), "utf8"));
+    bundledAylaAudioRoutes = Array.isArray(catalog.categories) ? catalog.categories : [];
+    let files = 0;
+    for (const route of bundledAylaAudioRoutes) {
+      if (!route?.folder || !route?.audio || route.folder.includes("..") || route.audio.includes("..")) continue;
+      try { await readFile(join(AUDIO_DIR, route.folder, route.audio)); files += 1; } catch {}
+    }
+    bundledAylaAudioStatus = { loaded: files > 0, routes: bundledAylaAudioRoutes.length, files, error: files ? null : "Nenhum MP3 roteável foi extraído." };
+    console.log("Biblioteca de áudios da Ayla carregada:", JSON.stringify(bundledAylaAudioStatus));
+  } catch (error) {
+    bundledAylaAudioRoutes = [];
+    bundledAylaAudioStatus = { loaded: false, routes: 0, files: 0, error: String(error?.message || error).slice(0, 180) };
+    console.warn("Biblioteca ZIP de áudios da Ayla não carregada:", bundledAylaAudioStatus.error);
+  }
+}
+
+function matchBundledAylaAudio(sourceMessage) {
+  const normalize = value => normalizeMediaText(value)
+    .replace(/[^\\p{L}\\p{N}\\s]/gu, " ")
+    .replace(/\\s+/g, " ").trim();
+  const source = normalize(sourceMessage);
+  if (!source) return null;
+  let bestScore = 0;
+  let candidates = [];
+  for (const route of bundledAylaAudioRoutes) {
+    const variants = Array.isArray(route.utterance_variants) ? route.utterance_variants : [];
+    for (const variantText of variants) {
+      const variant = normalize(variantText);
+      if (!variant) continue;
+      let score = 0;
+      if (source === variant) score = 1;
+      else if (source.includes(variant)) score = 0.98;
+      else if (variant.includes(source) && source.length >= 6) score = 0.84;
+      else {
+        const a = new Set(source.split(" ").filter(Boolean));
+        const b = new Set(variant.split(" ").filter(Boolean));
+        let overlap = 0;
+        for (const token of b) if (a.has(token)) overlap += 1;
+        score = overlap / Math.max(1, Math.min(a.size, b.size));
+      }
+      const threshold = Number(route.confidence_threshold) || 0.72;
+      if (score >= threshold) {
+        const relativePath = route.folder + "/" + route.audio;
+        if (score > bestScore) { bestScore = score; candidates = [relativePath]; }
+        else if (score === bestScore && !candidates.includes(relativePath)) candidates.push(relativePath);
+      }
+    }
+  }
+  return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+}
+
 async function chooseTelegramAudio(sourceMessage, reply) {
+  const bundledMatch = matchBundledAylaAudio(sourceMessage);
+  if (bundledMatch) return bundledMatch;
   const source = normalizeMediaText(sourceMessage);
   const answer = normalizeMediaText(reply);
   let categories = [];
@@ -753,8 +822,11 @@ async function deliverScheduledTelegramReply(job) {
     const isChoiceReply = storedReply.startsWith("__AYLA_CHOICE__");
     if (isChoiceReply) {
       storedReply = storedReply.slice("__AYLA_CHOICE__".length);
-      // Escolha equilibrada: uma resposta em texto OU uma em áudio.
-      storedReply = Math.random() < 0.5 ? "__AYLA_AUDIO__" + storedReply : storedReply;
+      // Se a frase recebida casar com um MP3 da biblioteca local, prioriza o áudio correspondente.
+      // Sem correspondência, mantém a escolha equilibrada entre texto e áudio.
+      storedReply = matchBundledAylaAudio(job.source_message ?? job.sourceMessage ?? "")
+        ? "__AYLA_AUDIO__" + storedReply
+        : (Math.random() < 0.5 ? "__AYLA_AUDIO__" + storedReply : storedReply);
     }
     const isAudioReply = storedReply.startsWith("__AYLA_AUDIO__");
     const replyText = isAudioReply
@@ -2343,6 +2415,7 @@ function phraseFallback(message, profile) {
   if (/\b(quem é você|quem e voce|quem é vc|quem e vc)\b/i.test(t)) return choose(["sou a Ayla 😊 e tu, como tá?", "eu sou a Ayla kkk, prazer 💗", "Ayla! hehe. E como posso te chamar?", "me chamo Ayla 💗 e tu?", "Ayla por aqui hehe, como posso te chamar?", "sou a Ayla, prazer em te conhecer 😊"]);
   return expandedFallback(message, profile);
 }
+await loadBundledAylaAudioRoutes();
 initStore().catch(error => { dbReady = false; pool = null; console.error("Banco de memória indisponível; memória temporária ativa:", error?.message || "erro"); });
 
 server.listen(PORT, "0.0.0.0", () => {
