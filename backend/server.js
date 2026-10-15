@@ -1454,6 +1454,23 @@ async function processTelegramUpdate(update) {
       else await sendTelegramText(chatId, photoReply);
       return;
     }
+    // Teste determinístico do áudio NANNO: envia o arquivo diretamente, sem a IA improvisar texto.
+    if (/^(?:nanno|nanno mp3|audio nanno|teste nanno)$/i.test(normalizedIncoming.trim())) {
+      try {
+        await sendTelegramAudio(chatId, "99_revisar/audio_sem_rotulo.mp3");
+        runtimeDiagnostics.audioSent += 1;
+        runtimeDiagnostics.repliesSent += 1;
+        runtimeDiagnostics.lastReplySentAt = new Date().toISOString();
+        addRuntimeEvent("success", "Áudio NANNO enviado por comando direto");
+      } catch (error) {
+        recordDiagnosticError("telegram.nanno_test_send", error);
+        console.error("Falha no teste direto do áudio NANNO:", error?.message || "erro");
+        await sendTelegramText(chatId, "Não consegui enviar o NANNO.mp3. O servidor pode ainda não ter carregado o arquivo ou o deploy pode estar desatualizado.");
+        runtimeDiagnostics.textFallbacks += 1;
+      }
+      return;
+    }
+
     const intimacyContext = "NÍVEL DE INTIMIDADE COM ESTA PESSOA: " + xpResult.after.name + " (nível " + xpResult.after.level + ", " + xpResult.xp + " XP). Ajuste familiaridade e carinho a esse nível. Os níveis são: Desconhecido, Conhecido, Familiar, Amigo, Próximo, Confidente. Não diga que não conhece o criador quando perguntarem quem é seu senhor/criador; o criador da Ayla é Kyodai, responsável pelo projeto Enterex.";
     const reply = creatorQuestion
       ? "Meu criador e senhor no projeto é o Kyodai, que desenvolve o Enterex. Eu sou a Ayla Logic Enterex, assistente virtual criada para conversar contigo. 💗"
